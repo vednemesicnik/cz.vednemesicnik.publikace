@@ -42,11 +42,16 @@ install scripts skipped: `pnpm exec lefthook install` is the fix.
   `./.agents/skills/remix/SKILL.md` (the `remix` skill) once `pnpm dev:setup-claude` has copied
   it.
 - **The app's SQLite database is the source of truth** for issues, articles, editorial clauses,
-  artworks and their groups, consent states, shared links and job runs. The Registr and the
-  Evidence sheets are not a database: the editors-in-chief only ever looked at them, and the one
-  thing done in them by hand, verifying a consent the scripts could not read, is the app's
-  _Ke kontrole_. A sheet stays only where a person reads it as a deliverable: _Podklady_ for the
-  graphic designer.
+  artworks and their groups, consent states, shared links and job runs. The editors-in-chief only
+  ever looked at the sheets, and the one thing done in them by hand, verifying a consent the
+  scripts could not read, is the app's _Ke kontrole_.
+- **The Registr and each issue's Evidence stay, as a record the app writes and never reads.**
+  They are where a licence is looked up, in the same columns for every issue, old or new. The
+  app writes the database first and the sheet after it, from a queue that retries, so a sheet
+  that does not answer delays the record and blocks nothing; a nightly rewrite from the database
+  mends whatever the queue missed. Only `publikace.app@` may edit them, people read them, and
+  neither the app nor a script reads them back: a hand edit would vanish unseen. _Podklady_ for
+  the graphic designer stays a sheet too, filled by its job.
 - **Drive holds the files, Gmail holds the proof.** Folders, article Docs, the PDFs of final
   versions, artworks and licences stay on Drive; a consent is the archived e-mail conversation.
   The database keeps their IDs and links, never their content.

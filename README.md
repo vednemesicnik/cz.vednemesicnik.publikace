@@ -20,8 +20,9 @@ The interface is Czech, because the people using it are. The code is English.
 
 - **Remix 3 on Fly.io**, the same stack as Fakturace: Node 26 and SQLite.
 - **The app's database is the source of truth.** Issues, articles, consents and artworks live
-  there; the Registr and Evidence sheets are not a database. Drive keeps the files, Gmail keeps
-  the consent conversations.
+  there. Drive keeps the files, Gmail keeps the consent conversations.
+- **The Registr and Evidence sheets stay as a record.** The app writes them after every change
+  and never reads them; they are where a licence is looked up.
 - **The background jobs stay in Apps Script**, run as `publikace.app@` and read and write through
   the app's API. `publikace@` is only the mailbox that sends and reads the e-mails.
 - **Writing, proofreading and consent stay where they are**: in the Google Doc of the article
