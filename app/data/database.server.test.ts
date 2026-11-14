@@ -5,12 +5,14 @@ import { describe, it } from 'remix/test'
 import { migrateDatabase, openDatabase } from './database.server.ts'
 
 describe('database', () => {
-  it('turns foreign keys on', async () => {
+  it('turns foreign keys on and waits on a lock instead of failing', async () => {
     let { close, database } = openDatabase(':memory:')
 
     try {
-      let result = await database.exec(sql`PRAGMA foreign_keys`)
-      assert.deepEqual(result.rows, [{ foreign_keys: 1 }])
+      let foreignKeys = await database.exec(sql`PRAGMA foreign_keys`)
+      let busyTimeout = await database.exec(sql`PRAGMA busy_timeout`)
+      assert.deepEqual(foreignKeys.rows, [{ foreign_keys: 1 }])
+      assert.deepEqual(busyTimeout.rows, [{ timeout: 5000 }])
     } finally {
       await close()
     }

@@ -23,13 +23,18 @@ export type OpenDatabase = {
  *
  * The connection is opened here rather than handed to `createSqliteDatabase` as a filename,
  * because its config sets `foreign_keys` but not the journal mode, and WAL is what lets the
- * background jobs' writes and the pages' reads overlap. `foreign_keys` is on because SQLite
- * leaves it off by default, and every reference in the schema is meant to hold.
+ * background jobs' writes and the pages' reads overlap. A supplied connection gets none of the
+ * config's settings, so all three are said here:
+ *   - `foreign_keys`, because SQLite leaves it off and every reference in the schema is meant
+ *     to hold,
+ *   - `busy_timeout`, because `node:sqlite` defaults to 0 and a write that meets a lock would
+ *     fail at once instead of waiting; 5 s is the value the config-backed database uses.
  */
 export function openDatabase(path: string = databasePath()): OpenDatabase {
   let connection = new DatabaseSync(path)
   connection.exec('PRAGMA journal_mode = WAL')
   connection.exec('PRAGMA foreign_keys = ON')
+  connection.exec('PRAGMA busy_timeout = 5000')
 
   let database = createSqliteDatabase(connection)
 

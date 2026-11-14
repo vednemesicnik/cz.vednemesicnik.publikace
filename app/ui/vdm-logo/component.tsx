@@ -16,11 +16,10 @@ const GRADIENT_MID = 'light-dark(#43d6a9, #14b8a6)'
 const GRADIENT_END = 'light-dark(#5cffa3, #6ee7b7)'
 
 /**
- * The magazine's square "V" mark.
+ * The magazine's square "V" mark, as decoration.
  *
- * It is named for a screen reader as _Vedneměsíčník_, because in the panel the wordmark
- * beside it carries the same name visually and the product name under it says which app this
- * is.
+ * Hidden from a screen reader: it always stands beside the wordmark, which names the magazine
+ * once, and a labelled mark would have the name read twice.
  */
 export function VdmLogo(handle: Handle<VdmLogoProps>) {
   let gradientId = `vdm-logo-gradient-${handle.id}`
@@ -30,9 +29,8 @@ export function VdmLogo(handle: Handle<VdmLogoProps>) {
 
     return (
       <svg
-        aria-label="Vedneměsíčník"
+        aria-hidden="true"
         height={size}
-        role="img"
         style={{ display: 'block', flex: 'none' }}
         viewBox="0 0 4167 4167"
         width={size}

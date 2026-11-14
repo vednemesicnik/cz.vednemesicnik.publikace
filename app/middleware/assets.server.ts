@@ -7,9 +7,9 @@ import { assetServer } from '../assets.ts'
  * read a session.
  *
  * A page pulls its whole module graph at once, dozens of requests in parallel, and a file has
- * no session. Put below `session()`, every one of them would read the session store and write
- * it back for nothing — billing lost its islands' hydration to exactly that race
- * (`cz.vednemesicnik.billing`, `app/middleware/assets.server.ts`).
+ * no session. Below `session()`, every one of them would read the session store and write it
+ * back, and one failed module import takes an island's whole graph down with it — the race
+ * `cz.vednemesicnik.billing`'s `app/middleware/assets.server.ts` describes.
  */
 export function serveAssets(): Middleware {
   return async (context, next) => {
