@@ -51,9 +51,10 @@ s užitím děl se dává **odpovědí přesně „Souhlasím“** na e-mail. Ji
 
 Štítky, jak je aplikace ukazuje (zdroj pravdy je stránka `01 Stavy a souhlasy` v návrhu):
 
-- Článek: _Píše se_, _Dopsáno_, _Korektura_, _U autorů_, _Ke kontrole_, _Schváleno_, _Upraveno po
-  schválení_, _Chyba_. _Dopsáno_ znamená, že je článek předaný ke korektuře a žádný korektor zatím
-  neoznačil, že na něm pracuje. _Korektura_ znamená, že korektura probíhá.
+- Článek: _Píše se_, _Dopsáno_, _Korektura_, _K souhlasu_, _Ke kontrole_, _Schváleno_, _Upraveno
+  po schválení_, _Chyba_. _Dopsáno_ znamená, že je článek předaný ke korektuře a žádný korektor
+  zatím neoznačil, že na něm pracuje. _Korektura_ znamená, že korektura probíhá. _K souhlasu_
+  znamená, že finální verze jde autorům a čeká se na „Souhlasím“ od každého z nich.
 - Obrazové dílo: _Zpracovává se_, _U poskytovatele_, _Ke kontrole_, _Schváleno_, _Chyba_.
 - Vydání: _Nedokončené_, _Aktivní_, _Uzavřené_.
 
