@@ -96,6 +96,11 @@ výslovně mluví o tabulce. Výjimka: _Dopsáno_ se v Evidenci jmenuje stejně.
 - Před časem se píše „ve“ u hodin 2, 3, 4, 12, 13, 14 a 20–23, jinak „v“: _ve 2:15_, _ve 13:30_,
   _ve 21:47_, _v 9:12_, _v 18:04_. Platí v aplikaci i v e-mailech. Je to konvence Publikace, ne
   obecné pravidlo češtiny.
+- Počet souhlasících autorů se píše _souhlas N z/ze M autora/autorů_. „Ze“ se píše při M = 2, 3,
+  4, 6 a 7, jinak „z“, protože rozhoduje výslovnost čísla ve 2. pádě („ze dvou“, „z pěti“). Při
+  M = 1 je tvar „autora“, při M = 2 až 10 „autorů“: _souhlas 0 z 1 autora_, _souhlas 1 ze 2
+  autorů_, _souhlas 2 z 5 autorů_. N tvar ani předložku nemění a „souhlas“ zůstává v jednotném
+  čísle. Platí pro tuto řádku a pro 1 až 10 autorů, ne jako obecné pravidlo skloňování.
 - Časové okno se píše rozsahem: _9:00–10:00_.
 - Pomlčka ve větě je em dash `—` s mezerami.
 - Uvozovky české „…“.
