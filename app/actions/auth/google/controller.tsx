@@ -132,7 +132,11 @@ export default function createGoogleController(signedInUntil: SignedInUntilCooki
              come from whoever called the callback. */
           let message = error instanceof Error ? error.message : 'unknown error'
           let line = [...message]
-            .map((char) => (char.charCodeAt(0) < 0x20 || char === '\u007f' ? ' ' : char))
+            .map((char) => {
+              let code = char.codePointAt(0) ?? 0
+              let isBreaking = code < 0x20 || (code >= 0x7f && code <= 0x9f)
+              return isBreaking || code === 0x2028 || code === 0x2029 ? ' ' : char
+            })
             .join('')
             .slice(0, 200)
           console.error(`[auth] Google sign-in did not finish: ${line}`)
