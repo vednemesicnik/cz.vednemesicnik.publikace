@@ -91,7 +91,9 @@ export async function createTestApp(): Promise<TestApp> {
       cookie: (name) => jar.get(name),
       get,
       async post(path, fields, from = '/settings') {
-        let body = new URLSearchParams({ _csrf: await csrfToken(from), ...fields })
+        // A token given in the fields is sent as it is, without visiting the page first.
+        let token = fields._csrf ?? (await csrfToken(from))
+        let body = new URLSearchParams({ ...fields, _csrf: token })
         let request = new Request(new URL(path, ORIGIN), {
           body,
           headers: { Cookie: cookieHeader(), Origin: ORIGIN, Referer: new URL(from, ORIGIN).href },

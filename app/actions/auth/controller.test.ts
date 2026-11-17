@@ -12,7 +12,7 @@ function locationOf(response: Response): URL {
 
 /** The text of the page's Callout, or `null` when it has none. */
 function calloutOf(html: string): { isError: boolean; text: string } | null {
-  let match = /<aside class="(vdm-callout[^"]*)">(.*?)<\/aside>/s.exec(html)
+  let match = /<div class="(vdm-callout[^"]*)">(.*?)<\/div>/s.exec(html)
   if (match === null) return null
   let text = (match[2] ?? '').replace(/<[^>]+>/g, '').trim()
   return { isError: (match[1] ?? '').includes('vdm-callout--error'), text }
@@ -88,6 +88,8 @@ describe('sign-in page', () => {
         '/\tjinde.cz',
         'https://jinde.cz',
         '/..//jinde.cz',
+        '/.//jinde.cz',
+        '/a/..//jinde.cz',
         '/%2e%2e//jinde.cz',
       ]) {
         let response = await browser.get(`/sign-in?redirectTo=${encodeURIComponent(foreign)}`)
@@ -156,9 +158,12 @@ describe('expiry', () => {
       )?.[1]
       assert.ok(token !== undefined)
 
-      // The page keeps its token, but the sign-in behind it is over.
-      await app.database.exec(
-        sql`UPDATE sessions SET data = ${JSON.stringify([{ _csrf: token }, {}])}`,
+      // The page keeps its token, but the session behind it, token and all, has expired.
+      await app.database.exec(sql`UPDATE sessions SET expires_at = ${'2000-01-01T00:00:00.000Z'}`)
+      browser.setCookie(
+        await createSignedInUntilCookie().serialize(
+          stamp(Temporal.Now.instant().subtract({ hours: 1 })),
+        ),
       )
 
       let response = await browser.post(
@@ -167,6 +172,8 @@ describe('expiry', () => {
         '/settings?x=1',
       )
       assert.equal(response.status, 303)
+      assert.equal(locationOf(response).pathname, '/sign-in')
+      assert.equal(locationOf(response).searchParams.get('error'), 'expired')
       assert.equal(locationOf(response).searchParams.get('redirectTo'), '/settings?x=1')
     } finally {
       await app.close()

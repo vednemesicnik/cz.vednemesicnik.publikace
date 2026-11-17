@@ -4,6 +4,7 @@ import { createContextKey, type RequestContext } from 'remix/router'
 import { Session } from 'remix/session'
 
 import { type AccessRefusal, decideAccess } from '../auth/access.server.ts'
+import { appOrigin } from '../auth/environment.server.ts'
 import {
   AUTHORIZATION_TTL_MS,
   EDITOR_SESSION_KEY,
@@ -106,37 +107,48 @@ function returnPath(context: RequestContext): string {
 
   try {
     let from = new URL(referer)
-    return from.origin === context.url.origin ? from.pathname + from.search : routes.home.href()
+    // Against the configured origin: behind a TLS-terminating proxy the request's own URL says
+    // `http:` while the browser sent `https:`.
+    return from.origin === appOrigin() ? from.pathname + from.search : routes.home.href()
   } catch {
     return routes.home.href()
   }
 }
 
 /**
- * Protects a controller: an anonymous request goes to the sign-in page with where it was
- * headed, and with the reason when there is one to tell.
+ * The answer to a request that needs a signed-in editor and has none: the sign-in page, with
+ * where it was headed and the reason when there is one to tell. `csrf()` gives the same answer
+ * to a form whose session expired with its token, so an expiry mid-submit reads as one.
  */
+export async function signInRedirect(
+  context: RequestContext,
+  signedInUntil: SignedInUntilCookie,
+): Promise<Response> {
+  let params = new URLSearchParams({ redirectTo: returnPath(context) })
+  let headers = new Headers()
+
+  let loss = context.get(AccessLoss)
+  let until = parseStamp(await signedInUntil.parse(context.request.headers.get('Cookie')))
+  if (loss !== null) {
+    params.set('error', loss)
+    // A refusal is not an expiry: the marker goes, so a later visit is not taken for one.
+    if (loss !== 'unavailable' && until !== null) {
+      headers.append('Set-Cookie', await signedInUntil.serialize('', { maxAge: 0 }))
+    }
+  } else if (until !== null && Temporal.Instant.compare(until, Temporal.Now.instant()) <= 0) {
+    params.set('error', 'expired')
+    // Said once: the next visit without a session is a plain one.
+    headers.append('Set-Cookie', await signedInUntil.serialize('', { maxAge: 0 }))
+  }
+
+  let response = redirect(`${routes.auth.signIn.href()}?${params}`, 303)
+  for (let cookie of headers.getSetCookie()) response.headers.append('Set-Cookie', cookie)
+  return response
+}
+
+/** Protects a controller: an anonymous request goes to the sign-in page. */
 export function requireEditor(signedInUntil: SignedInUntilCookie) {
   return requireAuth<Editor>({
-    async onFailure(context) {
-      let params = new URLSearchParams({ redirectTo: returnPath(context) })
-      let headers = new Headers()
-
-      let loss = context.get(AccessLoss)
-      if (loss !== null) {
-        params.set('error', loss)
-      } else {
-        let until = parseStamp(await signedInUntil.parse(context.request.headers.get('Cookie')))
-        if (until !== null && Temporal.Instant.compare(until, Temporal.Now.instant()) <= 0) {
-          params.set('error', 'expired')
-          // Said once: the next visit without a session is a plain one.
-          headers.append('Set-Cookie', await signedInUntil.serialize('', { maxAge: 0 }))
-        }
-      }
-
-      let response = redirect(`${routes.auth.signIn.href()}?${params}`, 303)
-      for (let cookie of headers.getSetCookie()) response.headers.append('Set-Cookie', cookie)
-      return response
-    },
+    onFailure: (context) => signInRedirect(context, signedInUntil),
   })
 }

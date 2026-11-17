@@ -36,8 +36,8 @@ export type AccessContext = {
  * Decides, failing closed.
  *
  * A named account is let in **without asking the membership service**, so it can sign in
- * while the service is down (`10a`, `unavailable`). Otherwise the groups are asked in turn and
- * the first membership wins. When no group says yes and any of them could not be asked, the
+ * while the service is down (`10a`, `unavailable`). Otherwise every group is asked and any
+ * membership wins. When no group says yes and any of them could not be asked, the
  * answer is `unavailable` — a "don't know", which is never remembered — and only a full set of
  * "no" is `notlisted`.
  */
@@ -62,14 +62,16 @@ export async function decideAccess(
     return { allowed: true, displayName: profile.name ?? account.displayName ?? email, email }
   }
 
-  let hasUnknown = false
-  for (let group of await directory.listGroups()) {
-    let answer = await checkMembership(email, group.email)
+  // All groups at once: while the service is down, a request waits one timeout, not one a group.
+  let groups = await directory.listGroups()
+  let answers = await Promise.all(groups.map((group) => checkMembership(email, group.email)))
+
+  for (let answer of answers) {
     if (answer.status === 'member') {
       return { allowed: true, displayName: answer.displayName ?? profile.name ?? email, email }
     }
-    if (answer.status !== 'not-member') hasUnknown = true
   }
 
+  let hasUnknown = answers.some((answer) => answer.status !== 'not-member')
   return { allowed: false, email, reason: hasUnknown ? 'unavailable' : 'notlisted' }
 }

@@ -2,7 +2,12 @@ import * as http from 'node:http'
 import { createRequestListener } from 'remix/node-fetch-server'
 
 import { assetServer } from './app/assets.ts'
-import { authorizedDomain, initialAdminEmail } from './app/auth/environment.server.ts'
+import {
+  appOrigin,
+  authorizedDomain,
+  googleCredentials,
+  initialAdminEmail,
+} from './app/auth/environment.server.ts'
 import { createAccessDirectory } from './app/data/access.server.ts'
 import { defaultDatabase, migrateDatabase } from './app/data/database.server.ts'
 import { normalizeEmail } from './app/domain/access.ts'
@@ -29,10 +34,13 @@ await migrateDatabase(database.database)
 
 /*
  * The first administrator, only while the access list has no named account (`03`, row 26).
- * Production refuses to start when nobody could ever change the list, and `authorizedDomain()`
- * refuses an empty domain there, so a deployment never runs letting nobody in without saying so.
+ * Production refuses to start when nobody could ever change the list, and the three reads before
+ * it refuse a missing domain, origin or Google client there, so a deployment that could let
+ * nobody in fails here rather than at somebody's first sign-in.
  */
 authorizedDomain()
+appOrigin()
+googleCredentials()
 const initialAdmin = normalizeEmail(initialAdminEmail())
 const directory = createAccessDirectory(database.database)
 if (initialAdmin !== '') {
