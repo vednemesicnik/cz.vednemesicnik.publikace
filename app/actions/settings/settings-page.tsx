@@ -332,9 +332,17 @@ function AddAccessForm(handle: Handle<AddAccessFormProps>) {
               <span data-kind="group">Adresa skupiny</span>
             </label>
             <input
-              aria-describedby={error === undefined ? undefined : 'access-email-error'}
+              aria-describedby={
+                error === undefined
+                  ? 'access-email-hint-account access-email-hint-group'
+                  : 'access-email-error'
+              }
               aria-invalid={error === undefined ? undefined : 'true'}
+              autocapitalize="none"
               autocomplete="off"
+              autocorrect="off"
+              // A refused address gets the focus back, so it is the next thing typed into.
+              autofocus={error === undefined ? undefined : true}
               class={
                 error === undefined
                   ? 'vdm-field__input'
@@ -343,15 +351,16 @@ function AddAccessForm(handle: Handle<AddAccessFormProps>) {
               id="access-email"
               name="email"
               placeholder={`jmeno@${domain}`}
+              spellcheck={false}
               type="email"
               value={addForm?.value ?? ''}
             />
             {error === undefined ? (
               <>
-                <span class="vdm-field__hint" data-kind="account">
+                <span class="vdm-field__hint" data-kind="account" id="access-email-hint-account">
                   Jen adresa @{domain}. Pozvánka se neposílá.
                 </span>
-                <span class="vdm-field__hint" data-kind="group">
+                <span class="vdm-field__hint" data-kind="group" id="access-email-hint-group">
                   Skupina Google na doméně {domain}.
                 </span>
               </>
@@ -500,7 +509,7 @@ export function SettingsPage(handle: Handle<SettingsPageProps>) {
 
     return (
       <Document title="Nastavení">
-        <Layout active="settings" person={editor} toasts={toasts}>
+        <Layout active="settings" isInert={question !== undefined} person={editor} toasts={toasts}>
           <div mix={columnStyle}>
             <h1 class="vdm-page-title" style={{ margin: 0 }}>
               Nastavení

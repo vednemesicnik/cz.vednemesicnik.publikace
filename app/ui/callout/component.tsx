@@ -6,15 +6,18 @@ export type CalloutProps = {
   tone: 'error' | 'info'
 }
 
-/** The design system's `Callout`: a tinted note inside the page. */
+/**
+ * The design system's `Callout`: a tinted note inside the page. A `div` where the design system
+ * writes `aside`: a note inside `main` is not a landmark of its own.
+ */
 export function Callout(handle: Handle<CalloutProps>) {
   return () => {
     let { children, tone } = handle.props
 
-    if (tone === 'info') return <aside class="vdm-callout">{children}</aside>
+    if (tone === 'info') return <div class="vdm-callout">{children}</div>
 
     return (
-      <aside class="vdm-callout vdm-callout--error vdm-callout--icon">
+      <div class="vdm-callout vdm-callout--error vdm-callout--icon">
         <svg
           aria-hidden="true"
           class="vdm-callout__icon"
@@ -33,7 +36,7 @@ export function Callout(handle: Handle<CalloutProps>) {
           <path d="M12 16h.01" />
         </svg>
         <div class="vdm-callout__body">{children}</div>
-      </aside>
+      </div>
     )
   }
 }

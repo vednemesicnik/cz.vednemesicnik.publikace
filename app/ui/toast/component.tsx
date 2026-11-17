@@ -6,11 +6,12 @@ export type ToastsProps = {
 }
 
 /*
- * Bottom left, as Fakturace places them, over the page and clear of the panel's foot. The
- * region is always in the page, empty or not, so a screen reader announces what arrives in it.
+ * Bottom left, as Fakturace places them, over the page and clear of the panel's foot.
  *
- * A confirmation leaves by itself after five seconds, in CSS: the page has no script to time
- * it, and the line it reports is already visible in the list beneath.
+ * The message arrives with the page after a redirect, and a screen reader does not announce a
+ * status that is already there when the page loads; the outcome is carried by the page itself,
+ * the new row in the list. So a confirmation leaves by itself after five seconds, in CSS, as the
+ * page has no script to time it.
  */
 const regionStyle = css({
   bottom: '18px',

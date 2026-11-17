@@ -8,6 +8,11 @@ export type LayoutProps = {
   /** The panel section this page belongs to. */
   active: PanelSection
   children?: RemixNode
+  /**
+   * Takes the page out of reach while a question is asked over it, so focus and clicks stay in
+   * the question: it is drawn at its own address with no script to open it as a modal.
+   */
+  isInert?: boolean
   /** The signed-in editor-in-chief. */
   person: PanelPerson
   /** Messages the previous request left for this page. */
@@ -40,7 +45,7 @@ const mainStyle = css({
  */
 export function Layout(handle: Handle<LayoutProps>) {
   return () => (
-    <div mix={shellStyle}>
+    <div inert={handle.props.isInert === true ? true : undefined} mix={shellStyle}>
       <Panel active={handle.props.active} person={handle.props.person} />
       <main mix={mainStyle}>{handle.props.children}</main>
       <Toasts messages={handle.props.toasts ?? []} />

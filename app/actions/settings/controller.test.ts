@@ -116,6 +116,11 @@ describe('settings, Přístup', () => {
       assert.equal(duplicate.status, 400)
       assert.ok(duplicateHtml.includes('Účet eva@priklad.cz už je přidaný.'))
       assert.ok(duplicateHtml.includes('value="eva@priklad.cz"'))
+      assert.ok(
+        /<input [^>]*autofocus[^>]*id="access-email"|<input [^>]*id="access-email"[^>]*autofocus/.test(
+          duplicateHtml,
+        ),
+      )
 
       let elsewhere = await (
         await browser.post('/settings/access', { email: 'vybor@jinde.cz', kind: 'group' })
@@ -228,6 +233,9 @@ describe('settings, Přístup', () => {
       let question = await (await browser.get(`/settings/access/accounts/${jakub}/remove`)).text()
       assert.ok(/<h2 [^>]*class="vdm-dialog__title"[^>]*>Odebrat účet\?<\/h2>/.test(question))
       assert.ok(textOf(question).includes('Účet bude odhlášen ze všech zařízení.'))
+      // Nothing behind the question can be reached while it is asked.
+      assert.ok(/<div inert[^>]*>\s*<aside aria-label="Panel aplikace"/.test(question))
+      assert.ok(!/<div inert/.test(await (await browser.get('/settings')).text()))
 
       let marie = await idOf(app, 'marie@priklad.cz')
       assert.equal(
