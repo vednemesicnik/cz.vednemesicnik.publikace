@@ -13,8 +13,8 @@ export const SESSION_LIFETIME = Temporal.Duration.from({ hours: 7 * 24 })
 const SESSION_LIFETIME_SECONDS = SESSION_LIFETIME.total({ unit: 'seconds' })
 
 /**
- * How long an answer about access is trusted before the next request asks again: ten minutes,
- * as in Fakturace. Somebody dropped from a group loses access within ten minutes, and the
+ * How long an answer about access is trusted before the next request asks again: ten minutes.
+ * Somebody dropped from a group loses access within ten minutes, and the
  * membership service is not asked on every request.
  */
 export const AUTHORIZATION_TTL_MS = 10 * 60 * 1000

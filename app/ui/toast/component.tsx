@@ -6,7 +6,7 @@ export type ToastsProps = {
 }
 
 /*
- * Bottom left, as Fakturace places them, over the page and clear of the panel's foot.
+ * Bottom left, over the page and clear of the panel's foot.
  *
  * The message arrives with the page after a redirect, and a screen reader does not announce a
  * status that is already there when the page loads; the outcome is carried by the page itself,

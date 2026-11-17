@@ -22,10 +22,9 @@ type ServiceResponse =
 /**
  * Asks the membership service, one address and one group per request.
  *
- * The secret travels in the body over HTTPS, which is the service's contract and how Fakturace
- * calls it (`03`, rozhodnuto 17. 11. 2026). The answer is a yes or a no that writes nothing, so
- * a replayed request gains nothing, and the service's `allowedGroups` bounds what a leaked
- * secret could ask about.
+ * The secret travels in the body over HTTPS, which is the service's contract (`03`, rozhodnuto
+ * 17. 11. 2026). The answer is a yes or a no that writes nothing, so a replayed request gains
+ * nothing, and the service's `allowedGroups` bounds what a leaked secret could ask about.
  *
  * Never throws: a timeout, a redirect loop or a body that is not JSON is `unavailable`, a
  * "don't know" rather than a "no".
