@@ -1,7 +1,8 @@
 # Migrations
 
 The schema of the app's SQLite database is the SQL in `db/migrations`, applied in order by
-`remix/data-table`. Nothing else creates or changes a table.
+`remix/data-table`. Nothing else creates or changes a table; the runner adds only its own
+journal.
 
 ## Where they live
 
