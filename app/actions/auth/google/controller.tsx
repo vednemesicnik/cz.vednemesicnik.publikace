@@ -134,7 +134,8 @@ export default function createGoogleController(signedInUntil: SignedInUntilCooki
           context,
           signedInUntil,
           finished.result.profile as Record<string, unknown>,
-          finished.returnTo ?? undefined,
+          // `finishExternalAuth` checks it too; the redirect is guarded where it happens.
+          localPath(finished.returnTo ?? null),
         )
       },
     },

@@ -87,6 +87,8 @@ describe('sign-in page', () => {
         '/\\/jinde.cz',
         '/\tjinde.cz',
         'https://jinde.cz',
+        '/..//jinde.cz',
+        '/%2e%2e//jinde.cz',
       ]) {
         let response = await browser.get(`/sign-in?redirectTo=${encodeURIComponent(foreign)}`)
         assert.equal(locationOf(response).href, 'http://localhost/', foreign)
