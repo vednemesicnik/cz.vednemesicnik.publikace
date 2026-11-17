@@ -149,6 +149,13 @@ const readOnlyListStyle = css({
   overflowWrap: 'anywhere',
 })
 
+/*
+ * The add form and the way to a removal question load a whole page (`data-rmx-document`). Within
+ * the page, the client runtime keeps what was typed into the field after an address was added,
+ * where `14b` empties it, and `autofocus` — the refused field, _Zrušit_ in the question — only
+ * takes effect when a document loads.
+ */
+
 /** Breaks a long address before the `@` first, as `14a` asks. */
 function Address(handle: Handle<{ email: string }>) {
   return () => {
@@ -257,6 +264,7 @@ function AccountRow(handle: Handle<AccountRowProps>) {
                 <span class="vdm-menu__sep" role="separator"></span>
                 <a
                   class="vdm-menu__item vdm-menu__item--danger"
+                  data-rmx-document
                   href={routes.settings.askRemoveAccount.href({ id: String(account.id) })}
                 >
                   Odebrat…
@@ -288,6 +296,7 @@ function GroupRow(handle: Handle<{ group: AccessGroup }>) {
         </span>
         <a
           class="vdm-btn vdm-btn--ghost vdm-btn--sm"
+          data-rmx-document
           href={routes.settings.askRemoveGroup.href({ id: String(group.id) })}
         >
           Odebrat
@@ -310,7 +319,13 @@ function AddAccessForm(handle: Handle<AddAccessFormProps>) {
     let error = addForm?.error
 
     return (
-      <form action={routes.settings.addAccess.href()} method="post" mix={addFormStyle} noValidate>
+      <form
+        action={routes.settings.addAccess.href()}
+        data-rmx-document
+        method="post"
+        mix={addFormStyle}
+        noValidate
+      >
         <CsrfField />
         <div
           aria-label="Co přidat"

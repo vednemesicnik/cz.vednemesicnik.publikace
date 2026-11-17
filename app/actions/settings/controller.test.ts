@@ -56,6 +56,9 @@ describe('settings, Přístup', () => {
       assert.ok(text.includes('Nastavit jako správce'))
       assert.ok(html.includes('Jen adresa @priklad.cz. Pozvánka se neposílá.'))
       assert.ok(html.includes('Skupina Google na doméně priklad.cz.'))
+      // A whole page after adding, so the field comes back empty and focus lands where it should.
+      assert.ok(/<form [^>]*action="\/settings\/access"[^>]*data-rmx-document/.test(html))
+      assert.ok(/<a [^>]*data-rmx-document[^>]*>Odebrat…<\/a>/.test(html))
     } finally {
       await app.close()
     }
