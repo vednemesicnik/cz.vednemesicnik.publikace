@@ -127,8 +127,15 @@ export default function createGoogleController(signedInUntil: SignedInUntilCooki
           finished = await finishExternalAuth(google, context)
         } catch (error) {
           /* A cancelled consent, an expired or replayed transaction, Google being down — or a
-             misconfigured client, which only this line would ever tell. */
-          console.error('[auth] Google sign-in did not finish:', error)
+             misconfigured client, which only this line would ever tell. The message alone, on
+             one bounded line: the error object can carry the token exchange, and the text can
+             come from whoever called the callback. */
+          let message = error instanceof Error ? error.message : 'unknown error'
+          let line = [...message]
+            .map((char) => (char.charCodeAt(0) < 0x20 || char === '\u007f' ? ' ' : char))
+            .join('')
+            .slice(0, 200)
+          console.error(`[auth] Google sign-in did not finish: ${line}`)
           return refuse('oauth', undefined)
         }
 
