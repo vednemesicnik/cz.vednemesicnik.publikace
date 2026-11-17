@@ -1,12 +1,17 @@
 import type { Handle, RemixNode } from 'remix/component'
 import { css } from 'remix/component'
 
-import { Panel, type PanelSection } from '../panel/component.tsx'
+import { Panel, type PanelPerson, type PanelSection } from '../panel/component.tsx'
+import { Toasts } from '../toast/component.tsx'
 
 export type LayoutProps = {
   /** The panel section this page belongs to. */
   active: PanelSection
   children?: RemixNode
+  /** The signed-in editor-in-chief. */
+  person: PanelPerson
+  /** Messages the previous request left for this page. */
+  toasts?: readonly string[]
 }
 
 /*
@@ -36,8 +41,9 @@ const mainStyle = css({
 export function Layout(handle: Handle<LayoutProps>) {
   return () => (
     <div mix={shellStyle}>
-      <Panel active={handle.props.active} />
+      <Panel active={handle.props.active} person={handle.props.person} />
       <main mix={mainStyle}>{handle.props.children}</main>
+      <Toasts messages={handle.props.toasts ?? []} />
     </div>
   )
 }
