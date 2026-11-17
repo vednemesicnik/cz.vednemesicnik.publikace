@@ -13,10 +13,24 @@ import { Access } from '../../middleware/access.server.ts'
 import { routes } from '../../routes.ts'
 import { SIGN_IN_ERRORS, type SignInError, SignInPage } from './sign-in-page.tsx'
 
-/** A path of this app, or nothing: `redirectTo` is only ever followed to a place here. */
+/**
+ * A path of this app, or nothing: `redirectTo` is only ever followed to a place here.
+ *
+ * Read the way a browser reads a `Location`, so `/\jinde.cz` — which a browser takes for
+ * `//jinde.cz` — and a control character inside the path never pass for a local path.
+ */
 export function localPath(value: string | null): string | undefined {
-  if (value === null || !value.startsWith('/') || value.startsWith('//')) return undefined
-  return value
+  if (value === null || !value.startsWith('/')) return undefined
+  let hasControl = [...value].some((char) => char.charCodeAt(0) < 0x20 || char === '\u007f')
+  if (value.startsWith('//') || value.includes('\\') || hasControl) return undefined
+
+  try {
+    let base = new URL('http://publikace.invalid')
+    let url = new URL(value, base)
+    return url.origin === base.origin ? url.pathname + url.search + url.hash : undefined
+  } catch {
+    return undefined
+  }
 }
 
 export default function createAuthController(signedInUntil: SignedInUntilCookie) {

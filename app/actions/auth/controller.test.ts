@@ -81,10 +81,16 @@ describe('sign-in page', () => {
       let response = await browser.get('/sign-in?redirectTo=%2Fsettings')
       assert.equal(response.status, 303)
       assert.equal(locationOf(response).pathname, '/settings')
-      assert.equal(
-        locationOf(await browser.get('/sign-in?redirectTo=%2F%2Fjinde.cz')).href,
-        'http://localhost/',
-      )
+      for (let foreign of [
+        '//jinde.cz',
+        '/\\jinde.cz',
+        '/\\/jinde.cz',
+        '/\tjinde.cz',
+        'https://jinde.cz',
+      ]) {
+        let response = await browser.get(`/sign-in?redirectTo=${encodeURIComponent(foreign)}`)
+        assert.equal(locationOf(response).href, 'http://localhost/', foreign)
+      }
     } finally {
       await app.close()
     }
