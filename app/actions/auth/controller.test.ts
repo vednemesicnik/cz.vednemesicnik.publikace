@@ -34,6 +34,8 @@ describe('sign-in page', () => {
         ),
       )
       assert.ok(html.includes('S účtem @priklad.cz, který má přístup do Publikace.'))
+      // The client runtime must leave the way to Google to the browser.
+      assert.ok(/<a [^>]*data-rmx-document[^>]*>Přihlásit se přes Google<\/a>/.test(html))
       assert.equal(calloutOf(html), null)
       assert.ok(!html.includes('vdm-signin__text'), 'no sentence under the title')
     } finally {

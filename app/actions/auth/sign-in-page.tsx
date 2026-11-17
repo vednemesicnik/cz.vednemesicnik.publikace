@@ -18,6 +18,10 @@ export const SIGN_IN_ERRORS: readonly SignInError[] = [
 ]
 
 /*
+ * The way to Google is a whole-page navigation (`data-rmx-document`): the client runtime would
+ * otherwise fetch it within the page, and the browser refuses to follow that fetch to
+ * accounts.google.com.
+ *
  * Google's own sign-out, the only way to end the Google session this app never held. Shown on
  * `10b` for a shared computer.
  */
@@ -93,7 +97,7 @@ export function SignInPage(handle: Handle<SignInPageProps>) {
               <p class="vdm-signin__text">
                 {signedOutAt === undefined ? note : `Odhlášeno ${signedOutAt}. ${note}`}
               </p>
-              <a class="vdm-btn vdm-btn--primary" href={start}>
+              <a class="vdm-btn vdm-btn--primary" data-rmx-document href={start}>
                 Přihlásit se znovu
               </a>
               <a class="vdm-btn vdm-btn--ghost" href={GOOGLE_SIGN_OUT_URL}>
@@ -114,7 +118,7 @@ export function SignInPage(handle: Handle<SignInPageProps>) {
                 {errorMessage(error, domain, refusedEmail)}
               </Callout>
             )}
-            <a class="vdm-btn vdm-btn--primary" href={start}>
+            <a class="vdm-btn vdm-btn--primary" data-rmx-document href={start}>
               Přihlásit se přes Google
             </a>
             <p class="vdm-signin__note vdm-signin__note--quiet">
