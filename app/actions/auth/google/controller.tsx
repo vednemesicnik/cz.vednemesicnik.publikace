@@ -125,8 +125,10 @@ export default function createGoogleController(signedInUntil: SignedInUntilCooki
         let finished
         try {
           finished = await finishExternalAuth(google, context)
-        } catch {
-          // A cancelled consent, an expired or replayed transaction, Google being down.
+        } catch (error) {
+          /* A cancelled consent, an expired or replayed transaction, Google being down — or a
+             misconfigured client, which only this line would ever tell. */
+          console.error('[auth] Google sign-in did not finish:', error)
           return refuse('oauth', undefined)
         }
 
