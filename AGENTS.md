@@ -75,9 +75,13 @@ Fly.io, and from `v1.0.0` also a GitHub Release. See
   first and keeps each folder's ID as it is created, so an issue that Drive stopped halfway is
   _Nedokončené_ and _Dokončit vydání_ adds only what is missing. When Drive fails at the issue
   folder itself, the row is removed in the same request: nothing exists, and the issue can be
-  created again under any name. The app never deletes on Drive and never recreates a folder
-  somebody removed: it marks it missing, shows it to the editors-in-chief, and a link page that
-  needs it accepts nothing until it is back.
+  created again under any name. Every other action is all or nothing (`11c`): when Drive fails
+  midway, what that one attempt created goes to the shared drive's bin, found by the IDs it
+  stored and the attempt's key on each file, never by a name. The app deletes nothing for good,
+  never touches what a person made or moved, and never recreates a folder somebody removed: it
+  marks it missing, shows it to the editors-in-chief, and a link page that needs it accepts
+  nothing until it is back. An e-mail goes only after the action is committed, because a sent one
+  cannot be taken back.
 - **Two accounts, as `web.app@` in `cz.vednemesicnik`.** `publikace@vednemesicnik.cz` is a mailbox
   and nothing else: it runs the deployments of `SCRIPT__Mail__Send` and `SCRIPT__Mail__Reply_Check`.
   `publikace.app@vednemesicnik.cz` runs everything else and is a Content manager of the shared
@@ -192,6 +196,19 @@ so a run that dies between sending an e-mail and reporting it does not send it t
 **A trigger runs as the account that created it.** CI pushes code but never installs triggers.
 Moving a script to `publikace.app@` means running its `setupTriggers()` as `publikace.app@` and
 deleting the old trigger under `publikace@` the same day; two live copies send every e-mail twice.
+
+**A shared link's pages run without the session, the sign-in and CSRF.** `/l/{key}/…` sets no
+cookie (`02a`), so `skipForPublicLinks()` in `app/router.ts` takes those middlewares out for it,
+and the session-backed CSRF token with them. What protects the form is the key in the address,
+the form's one-time key and the limit of thirty articles an hour; a page under `/l/` that needs a
+session is a sign that it belongs behind `requireEditor()` instead.
+
+**`css()` loses to a `vdm-*` class on the same element.** The mixes sit in the cascade layer
+`rmx`, and the design system's classes are unlayered, so on one element the class wins whatever
+the order. Put the mix on a wrapper, or the value inline.
+
+**A hydrated island's `<input value>` is controlled.** Typing into it is undone on the next
+render. An island's inputs take `defaultValue`.
 
 **The API is public, so every call proves who made it.** A call from a script carries a Google
 ID token, checked for its signature, its audience and the e-mail of `publikace.app@` (or of the

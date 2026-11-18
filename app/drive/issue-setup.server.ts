@@ -18,7 +18,8 @@ import { createLock } from './one-at-a-time.server.ts'
  * The row comes first and each folder's ID is stored the moment Drive returns it. When Drive
  * fails at the issue folder itself, the row goes in the same request, so _Nic se nevytvořilo_ is
  * true and the name is free again. After the issue folder, the issue stays _Nedokončené_ and
- * nothing is undone: the app never deletes on Drive.
+ * nothing goes to the bin: the issue is the one action that is finished rather than cleaned up
+ * (`11c`), because an editor-in-chief can see it and press _Dokončit vydání_.
  */
 
 export type IssueSetup = {
