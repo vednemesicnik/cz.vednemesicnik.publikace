@@ -40,6 +40,11 @@ export type ArtworksFormPageProps = {
   isClosed: boolean
   /** The answer to a send that did not go, above the form (`21d`). */
   message?: ArtworksMessage
+  /**
+   * New on every answer to a send that met something, so the island focuses what stands above the
+   * form even when the same sentence comes twice; `undefined` when the page only opened.
+   */
+  messageKey?: string
   preview: LinkPreview
   provider: { email: string; name: string }
   uploadAction: string
@@ -112,7 +117,13 @@ export function ArtworksFormPage(handle: Handle<ArtworksFormPageProps>) {
     return (
       <LinkPage preview={props.preview} title={ARTWORKS_PAGE_TITLE}>
         <Heading articleName={props.articleName} />
-        {props.warning === undefined ? null : (
+        {props.warning === undefined ? null : props.message === undefined &&
+          props.messageKey !== undefined ? (
+          /* A send that met the warning has no other message: the warning is what to focus. */
+          <div id={MESSAGE_ID} role="alert" tabIndex={-1}>
+            <Callout tone="warning">{warningText(props.warning)}</Callout>
+          </div>
+        ) : (
           <Callout tone="warning">{warningText(props.warning)}</Callout>
         )}
         {props.message === undefined ? null : (
@@ -131,9 +142,7 @@ export function ArtworksFormPage(handle: Handle<ArtworksFormPageProps>) {
           errors={props.errors}
           formKey={props.formKey}
           isClosed={props.isClosed || props.warning !== undefined}
-          messageKey={
-            props.message === undefined ? null : `${props.formKey}:${props.message.title}`
-          }
+          messageKey={props.messageKey ?? null}
           provider={props.provider}
           uploadAction={props.uploadAction}
         />

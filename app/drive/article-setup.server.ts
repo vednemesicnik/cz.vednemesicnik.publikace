@@ -18,7 +18,7 @@ import type { DriveAccessToken } from './access-token.server.ts'
 import type { ArticleFiles } from './article-files.server.ts'
 import type { DriveFolders } from './folders.server.ts'
 import { logDriveFailure } from './log.server.ts'
-import { isUnderDailyCap } from './artworks-setup.server.ts'
+import { reservePublicMail } from './artworks-setup.server.ts'
 import { createLock } from './one-at-a-time.server.ts'
 
 /**
@@ -126,14 +126,14 @@ async function create(setup: ArticleSetup, input: NewArticle): Promise<CreateArt
   }
 
   /* The count and the row in one step per link, so sends in parallel cannot all pass the limit.
-     The welcome e-mails count toward the cap of the whole app before the article exists: an
-     article whose e-mails could not go is not created. */
+     The welcome e-mails take their places under the cap of the whole app before the article
+     exists: an article whose e-mails could not go is not created. */
   let since = setup.now().subtract({ minutes: 60 })
   let attempt = await lock(`link:${link.id}`, async () => {
     if (!isRetry && (await setup.articles.recentAttempts(link.id, since)) >= SUBMISSIONS_PER_HOUR) {
       return 'limited' as const
     }
-    if (!isRetry && !(await isUnderDailyCap(setup, input.authors.length))) {
+    if (!isRetry && !(await reservePublicMail(setup, 'welcome', input.authors.length))) {
       return 'daily-cap' as const
     }
     let started = await setup.articles.startAttempt({
@@ -321,8 +321,6 @@ export async function cleanUpAbandoned(setup: ArticleSetup): Promise<void> {
 
 async function sendWelcomes(setup: ArticleSetup, article: Article, issue: Issue): Promise<void> {
   let artworksUrl = await artworksUrlOf(setup, article)
-  let unsent = article.authors.filter((author) => author.welcomeSentAt === null).length
-  if (unsent > 0) await setup.mailLog.record('welcome', unsent, setup.now())
   for (let author of article.authors) {
     if (author.welcomeSentAt !== null) continue
     let result = await setup.mailer(

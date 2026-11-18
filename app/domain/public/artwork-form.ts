@@ -70,7 +70,7 @@ export function notImageMessage(fileName: string): string {
 
 /** The refusal of one chosen file before it uploads, or `null` when it may upload. */
 export function choiceRefusal(file: { name: string; size: number; type: string }): string | null {
-  if (claimedType(file) === null) return notImageMessage(file.name)
+  if (claimedType(file) === null || file.size === 0) return notImageMessage(file.name)
   if (file.size > MAX_FILE_BYTES) return tooLargeMessage(file.name, file.size)
   return null
 }
@@ -115,7 +115,10 @@ export function checkSource(value: string): string | null {
   } catch {
     return SOURCE_NOT_URL_MESSAGE
   }
-  if (url.protocol !== 'https:' || /\s/.test(value)) return SOURCE_NOT_URL_MESSAGE
+  /* The parser mends `https:example.test`; the rule is the address as it was typed. */
+  if (!/^https:\/\//i.test(value) || url.protocol !== 'https:' || /\s/.test(value)) {
+    return SOURCE_NOT_URL_MESSAGE
+  }
   if (url.pathname.replace(/\/+$/, '') === '' && url.search === '') {
     return SOURCE_HOME_PAGE_MESSAGE
   }

@@ -65,8 +65,38 @@ export type ArtworksTarget = {
 
 const lock = createLock()
 
+/**
+ * The key a batch's licences and temporary Docs carry on Drive. Its own namespace, never the form
+ * key as the page sent it: the article's Doc and `_meta.json` in the same folder carry the article
+ * page's form key, and a cleanup by a key somebody chose must not be able to reach them.
+ */
+function licenceKey(formKey: string): string {
+  return `artworks:${formKey}`
+}
+
 /** Uploads under way per link, which the cap counts before their rows exist. */
 const uploading = new Map<number, number>()
+
+/*
+ * Bodies read at once, in the whole app. Each holds up to 15 MB in memory until Drive has it, and
+ * the cap per link would let sixty run together; past this many, an upload waits its turn.
+ */
+const BODIES_AT_ONCE = 4
+let bodiesReading = 0
+let waitingForBody: (() => void)[] = []
+
+async function withBodySlot<T>(run: () => Promise<T>): Promise<T> {
+  if (bodiesReading >= BODIES_AT_ONCE) {
+    await new Promise<void>((resolve) => waitingForBody.push(resolve))
+  }
+  bodiesReading += 1
+  try {
+    return await run()
+  } finally {
+    bodiesReading -= 1
+    waitingForBody.shift()?.()
+  }
+}
 
 /** The link, when it is a valid link of artworks to a committed article; `null` otherwise. */
 export async function resolveArtworksLink(
@@ -90,8 +120,8 @@ export type NewUpload = {
   fileName: string
   formKey: string
   linkKey: string
-  /** Reads the body, or `null` when it is larger than an artwork may be. */
-  readBody(): Promise<Bytes | null>
+  /** Reads the body: `too-large` past what an artwork may be, `cut` when it stopped coming. */
+  readBody(): Promise<Bytes | 'cut' | 'too-large'>
 }
 
 export type UploadOutcome =
@@ -137,25 +167,41 @@ export async function uploadArtwork(
   if (!isReserved) return { kind: 'limited' }
 
   try {
-    let bytes = await upload.readBody()
-    if (bytes === null || bytes.byteLength > MAX_FILE_BYTES) return { kind: 'too-large' }
-    if (bytes.byteLength === 0) return { kind: 'unavailable' }
+    return await withBodySlot(() => store(setup, files, upload, target))
+  } finally {
+    uploading.set(link.id, (uploading.get(link.id) ?? 1) - 1)
+  }
+}
 
-    let type = imageTypeOf(bytes)
-    let claimed = claimedType({ name: upload.fileName, type: upload.declaredType })
-    let mimeType = type ?? claimed ?? 'application/octet-stream'
-    let extension = ARTWORK_TYPES[mimeType] ?? '.bin'
-    let storedName = `${createHash('sha256').update(bytes).digest('hex')}${extension}`
-    let uploadKey = randomUUID()
+async function store(
+  setup: ArtworksSetup,
+  files: ArtworkFiles,
+  upload: NewUpload,
+  { article, link }: ArtworksTarget,
+): Promise<UploadOutcome> {
+  let bytes = await upload.readBody()
+  if (bytes === 'cut') return { kind: 'unavailable' }
+  if (bytes === 'too-large' || bytes.byteLength > MAX_FILE_BYTES) return { kind: 'too-large' }
+  if (bytes.byteLength === 0) return { kind: 'unavailable' }
 
-    let stored = await files.upload(article.folderId, storedName, mimeType, bytes, uploadKey)
-    if (!stored.ok) {
-      /* A reply lost on the way back leaves a file only its key finds. */
-      let lost = await files.findTagged(article.folderId, uploadKey)
-      for (let id of lost ?? []) await files.trash(id)
-      return { kind: 'unavailable' }
-    }
-    let artwork = await setup.artworks.addUpload({
+  let type = imageTypeOf(bytes)
+  let claimed = claimedType({ name: upload.fileName, type: upload.declaredType })
+  let mimeType = type ?? claimed ?? 'application/octet-stream'
+  let extension = ARTWORK_TYPES[mimeType] ?? '.bin'
+  let storedName = `${createHash('sha256').update(bytes).digest('hex')}${extension}`
+  let uploadKey = randomUUID()
+
+  let stored = await files.upload(article.folderId, storedName, mimeType, bytes, uploadKey)
+  if (!stored.ok) {
+    /* A reply lost on the way back leaves a file only its key finds. */
+    let lost = await files.findTagged(article.folderId, uploadKey)
+    if (lost === null) logDriveFailure('an upload whose reply was lost was not found', uploadKey)
+    for (let id of lost ?? []) await files.trash(id)
+    return { kind: 'unavailable' }
+  }
+  let artwork: ArtworkRow
+  try {
+    artwork = await setup.artworks.addUpload({
       articleId: article.id,
       at: setup.now(),
       driveFileId: stored.id,
@@ -168,10 +214,16 @@ export async function uploadArtwork(
       storedName,
       uploadKey,
     })
-    return { artwork, kind: type === null ? 'unreadable' : 'uploaded' }
-  } finally {
-    uploading.set(link.id, (uploading.get(link.id) ?? 1) - 1)
+  } catch (error) {
+    /* A file no row knows of would stay in the folder for good: it goes to the bin at once. */
+    logDriveFailure(
+      'an upload was not recorded',
+      error instanceof Error ? error.message : 'unknown error',
+    )
+    await files.trash(stored.id)
+    return { kind: 'unavailable' }
   }
+  return { artwork, kind: type === null ? 'unreadable' : 'uploaded' }
 }
 
 /* ─── _Odebrat_, _Zrušit_ ────────────────────────────────────────────────────────────────── */
@@ -230,6 +282,9 @@ async function sweepExpired(setup: ArtworksSetup, files: ArtworkFiles): Promise<
     for (let artwork of await setup.artworks.expiredUploads(before)) {
       let article = await setup.articles.findById(artwork.articleId)
       await lock.ifFree(`artworks:${artwork.formKey}`, async () => {
+        /* Read again under the page's key: a send may have taken it into a batch meanwhile. */
+        let current = await setup.artworks.findUpload(artwork.id)
+        if (current === null || current.batchId !== null || current.removedAt !== null) return
         let isGone =
           article?.folderId == null
             ? true
@@ -262,6 +317,8 @@ export type SubmitOutcome =
   | { kind: 'limited' }
   | { kind: 'link-gone' }
   | { kind: 'recipients' }
+  /* A card the page sent that is no longer one of its unsent uploads. */
+  | { kind: 'stale' }
   | { kind: 'unavailable' }
 
 export function submitArtworks(setup: ArtworksSetup, input: NewBatch): Promise<SubmitOutcome> {
@@ -293,7 +350,7 @@ async function submit(setup: ArtworksSetup, input: NewBatch): Promise<SubmitOutc
       .filter((artwork) => artwork.isReadable && artwork.linkId === target.link.id)
       .map((artwork) => artwork.id),
   )
-  if (!input.artworks.every((artwork) => unsent.has(artwork.id))) return { kind: 'unavailable' }
+  if (!input.artworks.every((artwork) => unsent.has(artwork.id))) return { kind: 'stale' }
 
   let presence = await setup.folders(token.accessToken).presence(article.folderId)
   if (presence === 'gone') return { kind: 'folder-gone' }
@@ -316,7 +373,7 @@ async function submit(setup: ArtworksSetup, input: NewBatch): Promise<SubmitOutc
     if (!recipients.includes(email) && recipients.length >= RECIPIENTS_PER_DAY_PER_LINK) {
       return { kind: 'recipients' as const }
     }
-    if (!(await isUnderDailyCap(setup, 1))) return { kind: 'daily-cap' as const }
+    if (!(await reservePublicMail(setup, 'consent', 1))) return { kind: 'daily-cap' as const }
     try {
       let { batch } = await setup.artworks.startBatch({
         articleId: article.id,
@@ -401,7 +458,7 @@ async function makeLicences(
       folderId,
       licenceDocName(artwork.storedName),
       html,
-      batch.formKey,
+      licenceKey(batch.formKey),
     )
     if (!doc.ok) return null
     await setup.artworks.setLicenceDoc(artwork.id, doc.id)
@@ -409,7 +466,13 @@ async function makeLicences(
     let pdf = await files.exportPdf(doc.id)
     if (pdf === null) return null
     let hash = createHash('sha256').update(pdf).digest('hex')
-    let stored = await files.upload(folderId, `${hash}.pdf`, 'application/pdf', pdf, batch.formKey)
+    let stored = await files.upload(
+      folderId,
+      `${hash}.pdf`,
+      'application/pdf',
+      pdf,
+      licenceKey(batch.formKey),
+    )
     if (!stored.ok) return null
     await setup.artworks.setLicenceFile(artwork.id, stored.id, hash)
     pdfs.set(artwork.id, pdf)
@@ -443,7 +506,7 @@ async function cleanUp(
   )
   let isComplete = true
   if (folderId !== null) {
-    let tagged = await files.findTagged(folderId, current.formKey)
+    let tagged = await files.findTagged(folderId, licenceKey(current.formKey))
     if (tagged === null) isComplete = false
     else for (let id of tagged) ids.add(id)
   }
@@ -504,13 +567,18 @@ export async function cleanUpAbandonedArtworks(setup: ArtworksSetup): Promise<vo
 
 /* ─── The consent request ────────────────────────────────────────────────────────────────── */
 
-/** Whether `count` more e-mails fit under the cap of today, Prague's day. */
-export async function isUnderDailyCap(
+/**
+ * Takes `count` places under the cap of today, Prague's day, before anything is made, so sends in
+ * parallel cannot all pass the same count; `false` when they do not fit.
+ */
+export function reservePublicMail(
   setup: Pick<ArtworksSetup, 'mailLog' | 'mailPerDay' | 'now'>,
+  kind: 'consent' | 'welcome',
   count: number,
 ): Promise<boolean> {
-  let dayStart = setup.now().toZonedDateTimeISO('Europe/Prague').startOfDay().toInstant()
-  return (await setup.mailLog.countSince(dayStart)) + count <= setup.mailPerDay
+  let at = setup.now()
+  let since = at.toZonedDateTimeISO('Europe/Prague').startOfDay().toInstant()
+  return setup.mailLog.reserve(kind, count, { cap: setup.mailPerDay, since }, at)
 }
 
 async function sendRequest(
@@ -520,7 +588,6 @@ async function sendRequest(
   issueName: string,
   attachments: MailAttachment[],
 ): Promise<SubmitOutcome> {
-  await setup.mailLog.record('consent', 1, setup.now())
   let result = await setup.mailer(
     consentEmail({
       articleName,
@@ -583,7 +650,7 @@ async function resendRequest(setup: ArtworksSetup, batch: BatchRow): Promise<Res
     if (bytes === null) return { kind: 'unavailable' }
     attachments.push(licenceAttachment(artwork.licenceHash ?? '', bytes))
   }
-  if (!(await isUnderDailyCap(setup, 1))) return { kind: 'daily-cap' }
+  if (!(await reservePublicMail(setup, 'consent', 1))) return { kind: 'daily-cap' }
 
   let sent = await sendRequest(setup, current, article.name, issue.name, attachments)
   if (sent.kind === 'sent' || sent.kind === 'refused') return { batch: sent.batch, kind: sent.kind }
@@ -599,7 +666,7 @@ export async function resendBatch(setup: ArtworksSetup, batchId: number): Promis
 
 export type DiscardOutcome =
   | { batch: BatchRow; kind: 'discarded' }
-  | { kind: 'closed' | 'gone' | 'unavailable' }
+  | { kind: 'already-sent' | 'closed' | 'gone' | 'unavailable' }
   | { kind: 'disconnected' | 'not-connected' }
 
 /**
@@ -619,12 +686,16 @@ export async function discardBatch(setup: ArtworksSetup, batchId: number): Promi
     let article = await setup.articles.findById(current.articleId)
     if (issue === null || article?.folderId == null) return { kind: 'gone' }
     if (issue.closedAt !== null) return { kind: 'closed' }
+    /* Only a batch in _Chyba_: one whose request reached the provider meanwhile is theirs now. */
+    if (current.mailSentAt !== null) return { kind: 'already-sent' }
 
     let token = await setup.token()
     if (!token.ok) return { kind: token.reason }
     let files = setup.files(token.accessToken)
     let ids = current.artworks.flatMap((artwork) =>
-      [artwork.driveFileId, artwork.licenceFileId].filter((id): id is string => id !== null),
+      [artwork.driveFileId, artwork.licenceFileId, artwork.licenceDocId].filter(
+        (id): id is string => id !== null,
+      ),
     )
     for (let id of ids) {
       if (!(await trashIfInFolder(files, id, article.folderId))) return { kind: 'unavailable' }

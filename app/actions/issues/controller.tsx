@@ -393,6 +393,8 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
         let issue = await issuesOf(context).store.findByName(context.params.name)
         let batch = issue === null ? null : await batchOf(context, issue, context.params.id)
         if (issue === null || batch === null || issue.closedAt !== null) return notFound()
+        /* Only a batch in _Chyba_ is discarded; a sent one goes back to the table. */
+        if (batch.mailSentAt !== null) return redirect(detailHref(issue, filterOf(context)), 303)
         let filter = filterOf(context)
         return renderDetail(context, issue, {
           discarding: {
@@ -419,8 +421,14 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
           case 'unavailable':
             flashToast(context, DISCARD_UNAVAILABLE_TOAST, 'error')
             return back()
-          case 'disconnected':
+          /* The provider's page sent the request while the dialog was open: nothing to discard,
+             the table now says _U poskytovatele_. */
+          case 'already-sent':
+            return back()
           case 'not-connected':
+            flashToast(context, notConnectedToast(expectedEmail), 'error')
+            return back()
+          case 'disconnected':
             flashToast(context, disconnectedBanner(expectedEmail), 'error')
             return back()
           case 'closed':

@@ -198,6 +198,8 @@ describe('checkSource', () => {
   it('refuses what is no full https address', () => {
     assert.equal(checkSource('unsplash.com/photos/a'), SOURCE_NOT_URL_MESSAGE)
     assert.equal(checkSource('http://unsplash.com/photos/a'), SOURCE_NOT_URL_MESSAGE)
+    assert.equal(checkSource('https:unsplash.com/photos/a'), SOURCE_NOT_URL_MESSAGE)
+    assert.equal(checkSource('https:/unsplash.com/photos/a'), SOURCE_NOT_URL_MESSAGE)
   })
 
   it('refuses a site’s home page', () => {
@@ -241,5 +243,10 @@ describe('checkArtworks', () => {
       provider: ONDREJ,
     })
     assert.deepEqual(many.ok ? [] : many.errors, [{ key: 'artworks', message: TOO_MANY_NOTE }])
+    let twenty = checkArtworks({
+      artworks: Array.from({ length: 20 }, (_, id) => ({ author: '', id, source: '' })),
+      provider: ONDREJ,
+    })
+    assert.equal(twenty.ok, true)
   })
 })

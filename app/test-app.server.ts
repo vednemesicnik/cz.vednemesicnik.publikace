@@ -44,8 +44,6 @@ export type TestApp = {
   directory: AccessDirectory
   /** Google as the app sees it in the suite: the token endpoint and Drive's files. */
   drive: FakeDrive
-  /** The app itself, for a request no browser of the suite makes. */
-  fetch(request: Request): Promise<Response>
   /** Every message the app handed the Mailer, in order. */
   mail: MailMessage[]
   /** The store of the app's account on Drive, on the same database. */
@@ -195,7 +193,6 @@ export async function createTestApp(): Promise<TestApp> {
     directory: createAccessDirectory(opened.database),
     drive,
     driveAccount: createDriveAccountStore(opened.database, TEST_DRIVE_TOKEN_KEY),
-    fetch: (request) => router.fetch(request),
     mail,
     setMembership(group, answer) {
       answers.set(group, answer)
@@ -255,16 +252,17 @@ export async function seedArticle(
   let links = createLinkStore(app.database)
   let articleLink = await links.articleLinkOf(issueId)
   if (articleLink === null) throw new Error('The issue has no link for articles.')
+  let issue = await createIssueStore(app.database).findById(issueId)
   let { attempt } = await articles.startAttempt({
     at: SEEDED_AT,
     authors: [{ email: 'tereza.vlkova@external.test', name: 'Tereza Vlková' }],
-    formKey: `seeded-${name}`,
+    formKey: `seeded-${issueId}-${crypto.randomUUID()}`,
     issueId,
     linkId: articleLink.id,
     name,
   })
   let folderId = `f-article-${attempt.id}`
-  app.drive.seedFolder(folderId, name, 'fake-articles-folder')
+  app.drive.seedFolder(folderId, name, issue?.folderIds.articles ?? '')
   await articles.setDriveId(attempt.id, 'folder', folderId)
   await articles.setDriveId(attempt.id, 'doc', `d-article-${attempt.id}`)
   await articles.setDriveId(attempt.id, 'meta', `m-article-${attempt.id}`)

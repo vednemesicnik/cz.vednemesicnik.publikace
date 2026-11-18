@@ -117,8 +117,9 @@ export type ArtworkStore = {
   /** Batch attempts whose cleanup failed, safe to take while other requests run. */
   pendingCleanups(): Promise<BatchRow[]>
   /**
-   * The distinct addresses a link's committed batches went to since a moment, in lower case: what
-   * the limit of five counts.
+   * The distinct addresses a link's batches went to since a moment, in lower case, those still
+   * making their licences included, so sends in parallel cannot pass the limit of five. A failed
+   * attempt's row is gone and no longer counts.
    */
   recipientsSince(linkId: number, since: Temporal.Instant): Promise<string[]>
   /** Batches through a link since a moment, under way or committed: what the limit counts. */
@@ -423,7 +424,8 @@ export function createArtworkStore(database: Database): ArtworkStore {
     async recipientsSince(linkId, since) {
       let result = await database.exec(
         sql`SELECT DISTINCT lower(provider_email) AS email FROM artwork_batches
-            WHERE link_id = ${linkId} AND created_at IS NOT NULL AND created_at >= ${stamp(since)}`,
+            WHERE link_id = ${linkId}
+              AND (created_at >= ${stamp(since)} OR (created_at IS NULL AND started_at >= ${stamp(since)}))`,
       )
       return (result.rows ?? []).map((row) => String(row['email']))
     },

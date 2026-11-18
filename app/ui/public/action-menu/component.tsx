@@ -69,6 +69,9 @@ export const ActionMenu = clientEntry(
     }
 
     async function copy(text: string): Promise<void> {
+      /* Emptied first, so a second copy is announced again. */
+      announced = ''
+      handle.update()
       try {
         await navigator.clipboard.writeText(text)
         announced = COPIED_LABEL

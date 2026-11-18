@@ -215,6 +215,7 @@ describe('the artworks in the issue detail', () => {
       assert.ok(text.includes('U poskytovatele'))
       assert.ok(text.includes('neuveden · unsplash.com/photos/…'))
       assert.ok(text.includes('u poskytovatele'))
+      assert.match(text, /Píše se založen [^ ]+ [^ ]+ 1 u poskytovatele/)
       assert.ok(html.includes(`/l/${context.key}/artworks`))
 
       let filtered = textOf(
@@ -261,12 +262,33 @@ describe('the artworks in the issue detail', () => {
         values: [],
       } as never)
       let sentBefore = context.app.mail.length
-      let resent = await context.editor.post(
+      /* The row's menu is an island: the token it posts with is the one in its props. */
+      let detail = await (await context.editor.get('/issues/VDM_2026_5?artworks=error')).text()
+      let token = /csrfToken(?:"|&quot;|\\")\s*:\s*(?:"|&quot;|\\")([^"&\\]+)/.exec(detail)?.[1]
+      assert.ok(token !== undefined && token !== '')
+      assert.ok(detail.includes('/issues/VDM_2026_5/artworks/batches/1/resend?artworks=error'))
+
+      let refused = await context.editor.post(
         '/issues/VDM_2026_5/artworks/batches/1/resend',
-        {},
+        { _csrf: 'not-the-token' },
+        '/issues/VDM_2026_5',
+      )
+      assert.equal(refused.status, 403)
+      let elsewhere = await context.editor.post(
+        '/issues/VDM_2026_5/artworks/batches/99/resend',
+        { _csrf: token },
+        '/issues/VDM_2026_5',
+      )
+      assert.equal(elsewhere.status, 404)
+      assert.equal(context.app.mail.length, sentBefore)
+
+      let resent = await context.editor.post(
+        '/issues/VDM_2026_5/artworks/batches/1/resend?artworks=error',
+        { _csrf: token },
         '/issues/VDM_2026_5',
       )
       assert.equal(resent.status, 303)
+      assert.equal(resent.headers.get('Location'), '/issues/VDM_2026_5?artworks=error')
       assert.equal(context.app.mail.length, sentBefore + 1)
       let after = textOf(await (await context.editor.get('/issues/VDM_2026_5')).text())
       assert.ok(after.includes(`Žádost o souhlas odešla na ${ONDREJ.email}.`))

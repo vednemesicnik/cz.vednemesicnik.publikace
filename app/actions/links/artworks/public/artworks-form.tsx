@@ -84,6 +84,9 @@ export const ARTWORK_SOURCE_FIELD = 'artwork-source'
 /** The id of the Callout above the form, which the island focuses after a failed send. */
 export const MESSAGE_ID = 'artworks-message'
 
+/** The island's own Callout when the link stopped working during an upload. */
+const LINK_GONE_ID = 'artworks-link-gone'
+
 type CardState = 'failed' | 'interrupted' | 'queued' | 'unreadable' | 'uploaded' | 'uploading'
 
 type Card = {
@@ -223,6 +226,22 @@ function isUploading(card: Card): boolean {
 }
 
 /**
+ * A card that holds the send back: still uploading, or one whose upload did not get through and
+ * waits to be tried again or removed. An unreadable file does not: it is never sent.
+ */
+function isBlocking(card: Card): boolean {
+  return isUploading(card) || card.state === 'interrupted' || card.state === 'failed'
+}
+
+/** What a card's live region says, so the end of an upload is heard as well as its start. */
+function statusOf(card: Card): string {
+  if (isUploading(card)) return UPLOADING_LABEL
+  if (card.state === 'uploaded') return UPLOADED_LABEL
+  if (card.state === 'unreadable') return unreadableTitle(card.name)
+  return card.message ?? INTERRUPTED_TEXT
+}
+
+/**
  * The form _Nahrání obrazových děl_ (`21a`, `21b`, `21d`): who provides the artworks, a card per
  * artwork with its author and source, and _Odeslat díla_ across the column.
  *
@@ -253,6 +272,7 @@ export const ArtworksForm = clientEntry(
     let errors: readonly ArtworkFieldError[] = handle.props.errors
     let shownErrors = handle.props.errors
     let shownFormKey = handle.props.formKey
+    let shownCards = handle.props.cards
     let shownMessage = handle.props.messageKey
     let form: HTMLFormElement | null = null
     let summary: HTMLElement | null = null
@@ -384,6 +404,10 @@ export const ArtworksForm = clientEntry(
         return
       }
       card.controller = null
+      /* _Zrušit_ goes with the upload; focus on it moves to the card rather than to nothing. */
+      if ((document.activeElement as HTMLElement | null)?.dataset['cancel'] === String(card.key)) {
+        focusById(`artwork-${card.key}-title`)
+      }
       if (!cards.includes(card)) {
         /* Cancelled while the answer was on its way: the server stored it, so it goes again. */
         if ('artwork' in answer) removeUpload(answer.artwork.id)
@@ -409,6 +433,7 @@ export const ArtworksForm = clientEntry(
           cards = uploadedCards()
           linkGone = true
           isClosedHere = true
+          focusById(LINK_GONE_ID)
           break
         case 'disconnected':
           card.state = 'failed'
@@ -460,10 +485,7 @@ export const ArtworksForm = clientEntry(
     }
 
     function onSubmit(event: Event): void {
-      if (
-        isPending ||
-        cards.some((card) => card.state !== 'uploaded' && card.state !== 'unreadable')
-      ) {
+      if (isPending || cards.some(isBlocking)) {
         event.preventDefault()
         return
       }
@@ -496,7 +518,7 @@ export const ArtworksForm = clientEntry(
     }
 
     function onDrag(event: DragEvent, isEntering: boolean): void {
-      if (!isReady || isClosed()) return
+      if (!isReady || isClosed() || isPending) return
       event.preventDefault()
       isOver = isEntering
       overCount = event.dataTransfer?.items.length ?? 0
@@ -504,7 +526,7 @@ export const ArtworksForm = clientEntry(
     }
 
     function onDrop(event: DragEvent): void {
-      if (!isReady || isClosed()) return
+      if (!isReady || isClosed() || isPending) return
       event.preventDefault()
       isOver = false
       choose([...(event.dataTransfer?.files ?? [])])
@@ -602,6 +624,9 @@ export const ArtworksForm = clientEntry(
             <span id={titleId} mix={cardTitleStyle} tabIndex={-1}>
               {artworkCardTitle(number)}
             </span>
+            <span class="vdm-sr-only" role="status">
+              {statusOf(card)}
+            </span>
             <div mix={failedStyle}>
               <p class="vdm-imagetile__failtext">{unreadableTitle(card.name)}</p>
               <p mix={noteStyle}>{UNREADABLE_TEXT}</p>
@@ -634,6 +659,9 @@ export const ArtworksForm = clientEntry(
               ? removeButton
               : null}
           </div>
+          <span class="vdm-sr-only" role="status">
+            {statusOf(card)}
+          </span>
           <div mix={fileStyle}>
             <b>{card.name}</b>
             <small>
@@ -647,12 +675,10 @@ export const ArtworksForm = clientEntry(
                 <span aria-hidden="true" class="vdm-upload__text">
                   {UPLOADING_LABEL}
                 </span>
-                <span class="vdm-sr-only" role="status">
-                  {UPLOADING_LABEL}
-                </span>
                 <button
                   aria-label={cancelUploadName(card.name)}
                   class="vdm-upload__cancel"
+                  data-cancel={String(card.key)}
                   mix={on('click', () => removeCard(card))}
                   type="button"
                 >
@@ -713,11 +739,19 @@ export const ArtworksForm = clientEntry(
       if (formKey !== shownFormKey) {
         /* A new form (_Nahrát další díla_, or a batch the editors discarded): its own cards. */
         shownFormKey = formKey
+        shownCards = handle.props.cards
         cards = fromProps(handle.props.cards)
         refusals = []
         capMessage = null
         linkGone = false
         isClosedHere = false
+      }
+      if (handle.props.cards !== shownCards) {
+        /* The server's answer lists the uploads it still holds for this page: a card it no
+           longer has (one the 24-hour sweep took) goes, the ones still uploading stay. */
+        shownCards = handle.props.cards
+        let held = new Set(handle.props.cards.map((card) => card.id))
+        cards = cards.filter((card) => card.state !== 'uploaded' || held.has(card.id ?? -1))
       }
       if (handle.props.errors !== shownErrors) {
         shownErrors = handle.props.errors
@@ -731,7 +765,7 @@ export const ArtworksForm = clientEntry(
 
       let closed = isClosed()
       let canChoose = isReady && !closed && !isPending
-      let waiting = cards.findIndex((card) => isUploading(card) || card.state === 'interrupted')
+      let waiting = cards.findIndex(isBlocking)
       let canSend = isReady && waiting === -1 && uploadedCards().length > 0
       let uploadedNumber = 0
 
@@ -767,7 +801,7 @@ export const ArtworksForm = clientEntry(
             </>
           )}
           {linkGone ? (
-            <div id={MESSAGE_ID} role="alert" tabIndex={-1}>
+            <div id={LINK_GONE_ID} role="alert" tabIndex={-1}>
               <div class="vdm-callout vdm-callout--error vdm-callout--icon">
                 <div class="vdm-callout__body">
                   <p class="vdm-callout__title" style={{ margin: '0 0 4px' }}>
@@ -793,7 +827,7 @@ export const ArtworksForm = clientEntry(
                 <ul class="vdm-callout__list">
                   {errors.map((error) => (
                     <li key={error.key}>
-                      <a href={`#${anchorOf(error.key, cards)}`}>{artworkFieldLabel(error.key)}</a>
+                      <a href={`#${anchorOf(error.key, cards)}`}>{labelOf(error.key, cards)}</a>
                     </li>
                   ))}
                 </ul>
@@ -833,7 +867,9 @@ export const ArtworksForm = clientEntry(
             </div>
           </fieldset>
           <fieldset
-            aria-describedby="artworks-hint"
+            aria-describedby={
+              errorFor('artworks') === undefined ? 'artworks-hint' : 'artworks-hint artworks-error'
+            }
             class="vdm-fieldgroup"
             id="artworks"
             tabIndex={-1}
@@ -846,7 +882,9 @@ export const ArtworksForm = clientEntry(
               {ARTWORKS_HINT}
             </span>
             {errorFor('artworks') === undefined ? null : (
-              <span class="vdm-field__hint vdm-field__hint--error">{errorFor('artworks')}</span>
+              <span class="vdm-field__hint vdm-field__hint--error" id="artworks-error">
+                {errorFor('artworks')}
+              </span>
             )}
             <div mix={stackStyle}>
               {cards.map((card, index) => {
@@ -896,8 +934,8 @@ export const ArtworksForm = clientEntry(
               {cards.length >= MAX_ARTWORKS || isTooMany ? (
                 <p mix={noteStyle}>{TOO_MANY_NOTE}</p>
               ) : null}
-              {refusals.map((refusal) => (
-                <p key={refusal} mix={refusalStyle} role="alert">
+              {refusals.map((refusal, index) => (
+                <p key={index} mix={refusalStyle} role="alert">
                   {refusal}
                 </p>
               ))}
@@ -934,6 +972,18 @@ export const ArtworksForm = clientEntry(
     }
   },
 )
+
+/**
+ * The label of the field an error points at. An error names a card by its place among the
+ * uploaded ones, as the server numbers them; the label names it by the number on its card.
+ */
+function labelOf(key: ArtworkFieldKey, cards: readonly Card[]): string {
+  let match = /^artwork-(\d+)-(author|source)$/.exec(key)
+  if (match === null) return artworkFieldLabel(key)
+  let card = cards.filter((candidate) => candidate.state === 'uploaded')[Number(match[1]) - 1]
+  let number = card === undefined ? Number(match[1]) : cards.indexOf(card) + 1
+  return artworkFieldLabel(`artwork-${number}-${match[2] as 'author' | 'source'}`)
+}
 
 /** The field an error's link in the summary leads to. */
 function anchorOf(key: ArtworkFieldKey, cards: readonly Card[]): string {

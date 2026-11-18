@@ -70,8 +70,15 @@ type FormState = {
   formKey: string
   isClosed?: boolean
   message?: ArtworksMessage
+  /** Set on an answer to a send, so the island focuses what stands above the form. */
+  messageKey?: string
   provider: { email: string; name: string }
   warning?: PageWarning
+}
+
+/** What an answer to a send carries for the island to focus: something new every time. */
+function answered(state: FormState): FormState {
+  return { ...state, messageKey: crypto.randomUUID() }
 }
 
 function articlesOf(context: LinkContext): ArticlesContext {
@@ -146,6 +153,7 @@ function renderForm(
       formKey={state.formKey}
       isClosed={state.isClosed ?? false}
       message={state.message}
+      messageKey={state.messageKey}
       preview={previewOf(context)}
       provider={state.provider}
       uploadAction={routes.links.artworks.upload.href({ key })}
@@ -230,21 +238,36 @@ async function cardsOf(
   })
 }
 
-/** The body, or `null` as soon as it passes the size an artwork may have. */
-async function readCapped(request: Request): Promise<Bytes | null> {
+/** A body that has not finished arriving by then has stopped: its slot goes to the next one. */
+const BODY_DEADLINE_MS = 120_000
+
+/** The body, `too-large` as soon as it passes the size an artwork may have, `cut` past the deadline. */
+async function readCapped(request: Request): Promise<Bytes | 'cut' | 'too-large'> {
   let reader = request.body?.getReader()
   if (reader === undefined) return new Uint8Array()
+  let isCut = false
+  let timer = setTimeout(() => {
+    isCut = true
+    void reader.cancel()
+  }, BODY_DEADLINE_MS)
   let chunks: Uint8Array[] = []
   let total = 0
-  for (;;) {
-    let { done, value } = await reader.read()
-    if (done || value === undefined) break
-    total += value.byteLength
-    if (total > MAX_FILE_BYTES) {
-      await reader.cancel()
-      return null
+  try {
+    for (;;) {
+      let { done, value } = await reader.read()
+      if (isCut) return 'cut'
+      if (done || value === undefined) break
+      total += value.byteLength
+      if (total > MAX_FILE_BYTES) {
+        await reader.cancel()
+        return 'too-large'
+      }
+      chunks.push(value)
     }
-    chunks.push(value)
+  } catch {
+    return 'cut'
+  } finally {
+    clearTimeout(timer)
   }
   let bytes = new Uint8Array(total)
   let offset = 0
@@ -361,6 +384,7 @@ export default function createArtworksController() {
             cards: [],
             formKey: crypto.randomUUID(),
             provider: form.provider,
+            warning: await warningOnOpen(context, target),
           })
         }
 
@@ -390,13 +414,13 @@ export default function createArtworksController() {
           return renderForm(
             context,
             article.name,
-            {
+            answered({
               cards: [],
               formKey: form.formKey,
               isClosed: true,
               message: LINK_GONE_ON_SEND,
               provider: form.provider,
-            },
+            }),
             { status: GONE },
           )
         }
@@ -427,57 +451,66 @@ export default function createArtworksController() {
             return renderForm(
               context,
               target.article.name,
-              { ...kept, isClosed: true, message: LINK_GONE_ON_SEND },
+              answered({ ...kept, isClosed: true, message: LINK_GONE_ON_SEND }),
               { status: GONE },
             )
           case 'discarded':
             return renderForm(
               context,
               target.article.name,
-              { ...kept, cards: [], formKey: crypto.randomUUID(), message: DISCARDED_ON_SEND },
+              answered({
+                ...kept,
+                cards: [],
+                formKey: crypto.randomUUID(),
+                message: DISCARDED_ON_SEND,
+              }),
               { status: IN_THE_WAY },
             )
           case 'folder-gone':
             return renderForm(
               context,
               target.article.name,
-              { ...kept, message: FOLDER_GONE_ON_SEND, warning: 'folder-gone' },
+              answered({ ...kept, message: FOLDER_GONE_ON_SEND, warning: 'folder-gone' }),
               { status: IN_THE_WAY },
             )
           case 'limited':
             return renderForm(
               context,
               target.article.name,
-              { ...kept, message: SUBMIT_LIMIT_ON_SEND },
+              answered({ ...kept, message: SUBMIT_LIMIT_ON_SEND }),
               { status: IN_THE_WAY },
             )
           case 'recipients':
             return renderForm(
               context,
               target.article.name,
-              { ...kept, message: RECIPIENT_LIMIT_ON_SEND },
+              answered({ ...kept, message: RECIPIENT_LIMIT_ON_SEND }),
               { status: IN_THE_WAY },
             )
           case 'daily-cap':
             return renderForm(
               context,
               target.article.name,
-              { ...kept, message: DAILY_CAP_ON_SEND },
+              answered({ ...kept, message: DAILY_CAP_ON_SEND }),
               { status: IN_THE_WAY },
             )
           case 'unavailable':
             return renderForm(
               context,
               target.article.name,
-              { ...kept, message: UNAVAILABLE_ON_SEND },
+              answered({ ...kept, message: UNAVAILABLE_ON_SEND }),
               { status: IN_THE_WAY },
             )
+          /* A card the server no longer holds for this page, one the 24-hour sweep took: the page
+             is drawn with what is left, and the island drops the rest. */
+          case 'stale':
+            return renderForm(context, target.article.name, kept, { status: IN_THE_WAY })
           case 'disconnected':
           case 'not-connected':
             return renderForm(
               context,
               target.article.name,
-              { ...kept, warning: 'disconnected' },
+              answered({ ...kept, warning: 'disconnected' }),
               { status: IN_THE_WAY },
             )
         }

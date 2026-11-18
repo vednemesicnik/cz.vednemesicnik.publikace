@@ -168,6 +168,13 @@ describe('the artwork store', () => {
     let app = await createTestApp()
     try {
       let { artworks, batch, upload } = await setup(app)
+      let { batch: failed } = await batch('other', [(await upload('other')).id])
+      await artworks.commitBatch(failed.id, AT)
+      await artworks.markMail(failed.id, 'failed', AT)
+      let failedRow = await artworks.findBatch(failed.id)
+      assert.equal(failedRow?.mailRefusedAt, null)
+      assert.equal(failedRow?.mailFailedAt?.equals(AT), true)
+
       let { batch: started } = await batch('form', [(await upload('form')).id])
       await artworks.commitBatch(started.id, AT)
       await artworks.markMail(started.id, 'refused', AT)
@@ -194,9 +201,11 @@ describe('the artwork store', () => {
 
       let { batch: started } = await batch('c', [(await upload('c')).id])
       assert.equal(await artworks.recentBatches(article.link.id, AT), 1)
-      assert.deepEqual(await artworks.recipientsSince(article.link.id, AT), [])
+      /* A batch still making its licences counts, so sends in parallel cannot pass the limit. */
+      assert.deepEqual(await artworks.recipientsSince(article.link.id, AT), [ONDREJ.email])
       await artworks.commitBatch(started.id, AT)
       assert.deepEqual(await artworks.recipientsSince(article.link.id, AT), [ONDREJ.email])
+      assert.deepEqual(await artworks.recipientsSince(article.link.id, AT.add({ hours: 1 })), [])
 
       assert.equal((await artworks.expiredUploads(AT.add({ hours: 24, minutes: 1 }))).length, 1)
     } finally {

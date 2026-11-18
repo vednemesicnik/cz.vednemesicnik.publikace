@@ -11,7 +11,7 @@ function message() {
     articleName: 'Školní jídelna <po> roce',
     artworks: [
       {
-        author: null,
+        author: 'Ondřej "Beneš" <b>',
         pdfHash: HASH,
         source: 'https://unsplash.com/photos/skolni-jidelna-obed-7Hk2pQ',
         storedName: `${'3'.repeat(64)}.jpg`,
@@ -41,7 +41,8 @@ describe('the consent request', () => {
 
   it('writes the terms as the script does, a missing author as neuveden, and the house ending', () => {
     let html = message().htmlBody
-    assert.ok(html.includes('Autor: neuveden'))
+    assert.ok(html.includes('Autor: Ondřej &quot;Beneš&quot; &lt;b&gt;'))
+    assert.ok(!html.includes('<b>'))
     assert.ok(html.includes(`Ověřovací otisk přílohy: ${HASH}`))
     assert.ok(html.includes('IČO 22851356, bezúplatnou nevýhradní licenci'))
     assert.ok(
