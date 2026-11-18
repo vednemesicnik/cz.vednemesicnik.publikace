@@ -21,7 +21,11 @@ import {
   PREVIEW_DESCRIPTION,
   previewTitle,
 } from '../../domain/link.ts'
-import { createArticle } from '../../drive/article-setup.server.ts'
+import {
+  createArticle,
+  type CreateArticleOutcome,
+  replayedArticle,
+} from '../../drive/article-setup.server.ts'
 import { Articles, type ArticlesContext } from '../../middleware/articles.server.ts'
 import { DriveAccount, type DriveAccountContext } from '../../middleware/drive-account.server.ts'
 import { routes } from '../../routes.ts'
@@ -137,6 +141,24 @@ function renderForm(
   )
 }
 
+/** `20d`, for a first send and for every resend of the same form. */
+function renderCreated(
+  context: LinkContext,
+  outcome: Extract<CreateArticleOutcome, { kind: 'created' }>,
+): Response | Promise<Response> {
+  return context.render(
+    <ArticleCreatedPage
+      anotherHref={routes.links.article.href({ key: context.params.key })}
+      articleName={outcome.article.name}
+      artworksUrl={outcome.artworksUrl}
+      documentUrl={documentUrl(outcome.article.docId)}
+      isEveryWelcomeSent={outcome.isEveryWelcomeSent}
+      issueName={outcome.issue.name}
+      preview={previewOf(articlesOf(context).origin, outcome.issue)}
+    />,
+  )
+}
+
 function formOf(context: LinkContext): {
   authors: AuthorInput[]
   formKey: string
@@ -180,6 +202,13 @@ export default function createLinksController() {
 
         let form = formOf(context)
         if (resolved.state !== 'valid') {
+          /* A resend of a form whose article exists gets it back, even through a replaced link. */
+          let replayed = await replayedArticle(
+            articlesOf(context).setup,
+            form.formKey,
+            context.params.key,
+          )
+          if (replayed?.kind === 'created') return renderCreated(context, replayed)
           let link = await articlesOf(context).links.findByKey(context.params.key)
           let issue =
             link === null ? null : await articlesOf(context).setup.issues.findById(link.issueId)
@@ -194,17 +223,15 @@ export default function createLinksController() {
         let { issue } = resolved
 
         /* _Přidat autora_ and _Odebrat_ without the browser runtime: the same form drawn again. */
+        let shown = form.authors.slice(0, MAX_AUTHORS)
         if (form.intent === 'add-author') {
-          let authors =
-            form.authors.length >= MAX_AUTHORS
-              ? form.authors
-              : [...form.authors, { email: '', name: '' }]
+          let authors = shown.length >= MAX_AUTHORS ? shown : [...shown, { email: '', name: '' }]
           return renderForm(context, issue, { ...form, authors })
         }
         let removed = /^remove-(\d+)$/.exec(form.intent)
         if (removed !== null) {
           let index = Number(removed[1]) - 1
-          let authors = form.authors.filter((_, position) => position !== index || position === 0)
+          let authors = shown.filter((_, position) => position !== index || position === 0)
           return renderForm(context, issue, { ...form, authors })
         }
 
@@ -227,17 +254,7 @@ export default function createLinksController() {
         let kept = { ...form, authors: check.article.authors, name: check.article.name }
         switch (outcome.kind) {
           case 'created':
-            return context.render(
-              <ArticleCreatedPage
-                anotherHref={routes.links.article.href({ key: context.params.key })}
-                articleName={outcome.article.name}
-                artworksUrl={outcome.artworksUrl}
-                documentUrl={documentUrl(outcome.article.docId)}
-                isEveryWelcomeSent={outcome.isEveryWelcomeSent}
-                issueName={outcome.issue.name}
-                preview={previewOf(articlesOf(context).origin, outcome.issue)}
-              />,
-            )
+            return renderCreated(context, outcome)
           case 'link-gone':
             return renderForm(
               context,

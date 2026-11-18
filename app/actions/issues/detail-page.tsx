@@ -18,7 +18,9 @@ import {
   ARTICLE_LINK_LABEL,
   LINK_SECTION_TEXT,
   LINK_SECTION_TITLE,
+  OPEN_FORM_LABEL,
   RENEW_CONFIRM_LABEL,
+  RENEW_LINK_LABEL,
   RENEW_DIALOG_NOTE,
   RENEW_DIALOG_TEXT,
   RENEW_DIALOG_TITLE,
@@ -138,6 +140,8 @@ const linkBodyStyle = css({
   flexDirection: 'column',
   gap: '6px',
   minWidth: 0,
+  /* _Sdílet_ draws nothing on a computer, and its empty wrapper would still take a gap. */
+  '& > :empty': { display: 'none' },
   '& .vdm-copybutton__value': {
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
     fontSize: '13px',
@@ -147,7 +151,8 @@ const linkBodyStyle = css({
 
 const linkLabelStyle = css({ fontSize: '15px', fontWeight: 600 })
 
-/* The Doc's title takes what is left; the tag, the artworks and `⋯` keep their width (`12a`). */
+/* The Doc's title takes most of what is left and the artworks the rest; the tag and `⋯` keep
+   their width (`12a`). */
 const ARTICLE_COLUMNS = 'minmax(180px, 3fr) 160px minmax(110px, 1fr) 44px'
 
 const quietStyle = css({ color: 'var(--text-tertiary)' })
@@ -174,8 +179,8 @@ function LinkBlock(handle: Handle<{ link: LinkBlockView }>) {
   return () => {
     let { link } = handle.props
     let items: ActionMenuItem[] = [
-      { href: link.openHref, label: 'Otevřít formulář' },
-      { href: link.renewHref, isSameTab: true, label: 'Vydat nový odkaz…' },
+      { href: link.openHref, label: OPEN_FORM_LABEL },
+      { href: link.renewHref, isSameTab: true, label: RENEW_LINK_LABEL },
     ]
 
     return (
@@ -373,7 +378,7 @@ export function DetailPage(handle: Handle<DetailPageProps>) {
                   )}
                   <FinishIssueForm issue={issue} placement="callout" returnTo="detail" />
                 </Callout>
-                <Section title="Odkaz pro redakci">
+                <Section title={LINK_SECTION_TITLE}>
                   <p mix={placeholderStyle}>{LINK_PLACEHOLDER_TEXT}</p>
                 </Section>
               </>

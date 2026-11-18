@@ -61,6 +61,10 @@ import { routes } from './routes.ts'
 /**
  * The context every controller sees. Exported for the type alone: building a router opens
  * nothing by itself, but `server.ts` and the tests are the ones that decide on which database.
+ *
+ * Under `/l/` the session, the sign-in and the toasts are not there, though the type says they
+ * are: `skipForPublicLinks()` takes their middlewares out at runtime. A controller for those pages
+ * reads only what it loads itself, as the links controller does.
  */
 export type AppContext = MiddlewareContext<
   [

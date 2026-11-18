@@ -138,6 +138,19 @@ describe('one page for every link that does not work (02e)', () => {
         textOf(await response.text()).includes('Napište šéfredakci a požádejte o aktuální odkaz.'),
       )
     }))
+  it('answers 410 once the issue is closed, and is never cached', () =>
+    withLink(async ({ app, key, visitor }) => {
+      let open = await visitor.get(`/l/${key}/article`)
+      assert.equal(open.headers.get('Cache-Control'), 'no-store')
+
+      await app.database.exec({
+        text: "UPDATE issues SET closed_at = '2026-11-18T12:00:00Z'",
+        values: [],
+      } as never)
+      let response = await visitor.get(`/l/${key}/article`)
+      assert.equal(response.status, 410)
+      assert.equal(response.headers.get('Cache-Control'), 'no-store')
+    }))
 })
 
 describe('creating an article from the link (20b–20d)', () => {
@@ -205,6 +218,40 @@ describe('creating an article from the link (20b–20d)', () => {
       assert.ok(textOf(html).includes('Autor 2'))
     }))
 
+  it('takes the card out for Odebrat without the browser runtime', () =>
+    withLink(async ({ key, visitor }) => {
+      let response = await visitor.send(
+        `/l/${key}/article`,
+        articleForm(crypto.randomUUID(), 'Článek', [TEREZA, ONDREJ], 'remove-2'),
+      )
+      let html = await response.text()
+      assert.equal(response.status, 200)
+      assert.ok(html.includes(`value="${TEREZA.email}"`))
+      assert.ok(!html.includes(`value="${ONDREJ.email}"`))
+    }))
+
+  it('refuses eleven authors and an author name over 200 characters, creating nothing', () =>
+    withLink(async ({ app, key, visitor }) => {
+      let eleven = Array.from({ length: 11 }, (_, index) => ({
+        email: `autor${index + 1}@external.test`,
+        name: `Autor ${index + 1}`,
+      }))
+      let many = await visitor.send(
+        `/l/${key}/article`,
+        articleForm(crypto.randomUUID(), 'Článek', eleven),
+      )
+      assert.equal(many.status, 400)
+      assert.ok(textOf(await many.text()).includes('Článek může mít nejvýš 10 autorů.'))
+
+      let long = await visitor.send(
+        `/l/${key}/article`,
+        articleForm(crypto.randomUUID(), 'Článek', [{ ...TEREZA, name: 'T'.repeat(201) }]),
+      )
+      assert.equal(long.status, 400)
+      assert.ok(textOf(await long.text()).includes('Zkraťte jméno na nejvýš 200 znaků.'))
+      assert.equal(app.mail.length, 0)
+    }))
+
   it('says Drive did not answer, keeps the fields, and leaves nothing behind', () =>
     withLink(async ({ app, key, visitor }) => {
       app.drive.failStep('copy')
@@ -240,6 +287,18 @@ describe('creating an article from the link (20b–20d)', () => {
       assert.ok(textOf(html).includes('Napište šéfredakci o aktuální odkaz.'))
       assert.ok(html.includes('value="Školní jídelna po roce"'))
       assert.ok(!textOf(html).includes('Vytvořit článek'))
+    }))
+
+  it('answers a resend of a created form with its page, also after the link was replaced', () =>
+    withLink(async ({ app, editor, key, visitor }) => {
+      let body = articleForm(crypto.randomUUID(), 'Školní jídelna po roce', [TEREZA])
+      await visitor.send(`/l/${key}/article`, body)
+      await editor.post('/issues/VDM_2026_5/link/renew', {}, '/issues/VDM_2026_5/link/renew')
+
+      let again = await visitor.send(`/l/${key}/article`, body)
+      assert.equal(again.status, 200)
+      assert.ok(textOf(await again.text()).includes('Článek je založený'))
+      assert.equal(app.mail.length, 1)
     }))
 })
 
@@ -283,5 +342,12 @@ describe('the link and the articles in the detail (12a, 12c, 02d)', () => {
       let detail = await (await editor.get('/issues/VDM_2026_5')).text()
       assert.ok(!detail.includes(`/l/${key}/article`))
       assert.ok(textOf(detail).includes('Pošlete redakci nový odkaz. Starý už neplatí.'))
+    }))
+
+  it('refuses a renewal sent without the form’s token, keeping the link', () =>
+    withLink(async ({ editor, key, visitor }) => {
+      let refused = await editor.send('/issues/VDM_2026_5/link/renew', new URLSearchParams())
+      assert.equal(refused.status, 403)
+      assert.equal((await visitor.get(`/l/${key}/article`)).status, 200)
     }))
 })

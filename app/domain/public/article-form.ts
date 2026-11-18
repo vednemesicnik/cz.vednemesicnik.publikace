@@ -5,6 +5,7 @@
  */
 
 export const MAX_ARTICLE_NAME_LENGTH = 200
+export const MAX_AUTHOR_NAME_LENGTH = 200
 export const MAX_AUTHORS = 10
 
 /** What the form sent for one author card. */
@@ -31,6 +32,8 @@ export type ArticleCheck =
 export const EMPTY_ARTICLE_NAME_MESSAGE = 'Vyplňte název článku.'
 export const LONG_ARTICLE_NAME_MESSAGE = 'Zkraťte název na nejvýš 200 znaků.'
 export const EMPTY_AUTHOR_NAME_MESSAGE = 'Vyplňte jméno a příjmení.'
+/* Derived from the article name's sentence, not yet through the copywriter. */
+export const LONG_AUTHOR_NAME_MESSAGE = 'Zkraťte jméno na nejvýš 200 znaků.'
 export const EMPTY_AUTHOR_EMAIL_MESSAGE = 'Vyplňte e-mail autora.'
 export const MISSING_AT_MESSAGE = 'Doplňte do e-mailové adresy zavináč.'
 export const INVALID_EMAIL_MESSAGE = 'Zadejte e-mail ve tvaru jan.novak@external.test.'
@@ -85,6 +88,8 @@ export function checkArticle(input: ArticleInput): ArticleCheck {
     let number = index + 1
     if (card.name === '') {
       errors.push({ key: `author-${number}-name`, message: EMPTY_AUTHOR_NAME_MESSAGE })
+    } else if ([...card.name].length > MAX_AUTHOR_NAME_LENGTH) {
+      errors.push({ key: `author-${number}-name`, message: LONG_AUTHOR_NAME_MESSAGE })
     }
     let message = emailMessage(card.email)
     if (message !== null) {

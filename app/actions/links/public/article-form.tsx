@@ -162,6 +162,11 @@ export const ArticleForm = clientEntry(
     }
 
     function onSubmit(event: Event): void {
+      /* Enter in a read-only field still submits: the article is already on its way. */
+      if (isPending) {
+        event.preventDefault()
+        return
+      }
       if (form === null) return
       let data = new FormData(form)
       let names = data.getAll(AUTHOR_NAME_FIELD).map(String)
@@ -253,16 +258,17 @@ export const ArticleForm = clientEntry(
           ]}
           noValidate
         >
-          {isClosed ? null : (
-            <button
-              aria-hidden="true"
-              mix={defaultSubmitStyle}
-              name="intent"
-              tabIndex={-1}
-              type="submit"
-              value="create"
-            />
-          )}
+          {/* Enter submits through the first submit button, which would otherwise be _Odebrat_ or
+              _Přidat autora_; disabled, it stops Enter instead while there is nothing to send. */}
+          <button
+            aria-hidden="true"
+            disabled={isClosed || isPending}
+            mix={defaultSubmitStyle}
+            name="intent"
+            tabIndex={-1}
+            type="submit"
+            value="create"
+          />
           <input name="formKey" type="hidden" value={formKey} />
           {errors.length === 0 ? null : (
             <div
@@ -320,19 +326,40 @@ export const ArticleForm = clientEntry(
             type: 'text',
             value: name,
           })}
-          <fieldset class="vdm-fieldgroup" id="authors" tabIndex={-1}>
+          <fieldset
+            aria-describedby={
+              errorFor('authors') === undefined ? 'authors-hint' : 'authors-hint authors-error'
+            }
+            class="vdm-fieldgroup"
+            id="authors"
+            tabIndex={-1}
+          >
             <legend class="vdm-field__label vdm-fieldgroup__legend">
               {AUTHORS_LEGEND}
               <Required />
             </legend>
-            <span class="vdm-field__hint">{AUTHORS_HINT}</span>
+            <span class="vdm-field__hint" id="authors-hint">
+              {AUTHORS_HINT}
+            </span>
+            {errorFor('authors') === undefined ? null : (
+              <span class="vdm-field__hint vdm-field__hint--error" id="authors-error">
+                {errorFor('authors')}
+              </span>
+            )}
             <div mix={[cardsStyle, cardsContainerStyle]}>
               {cards.map((card, index) => {
                 let number = index + 1
                 return (
-                  <div key={card.id} mix={cardStyle}>
+                  <div
+                    aria-labelledby={`author-${number}-title`}
+                    key={card.id}
+                    mix={cardStyle}
+                    role="group"
+                  >
                     <div mix={cardHeadStyle}>
-                      <span mix={cardTitleStyle}>{authorCardTitle(number)}</span>
+                      <span id={`author-${number}-title`} mix={cardTitleStyle}>
+                        {authorCardTitle(number)}
+                      </span>
                       {number === 1 ? null : (
                         <button
                           aria-label={removeAuthorName(number)}

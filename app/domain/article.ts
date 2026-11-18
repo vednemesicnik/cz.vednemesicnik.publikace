@@ -1,6 +1,6 @@
 /**
  * Articles (_články_): the record the Doc's scripts read, and the words `20a`–`20d` and the
- * welcome e-mail give them. The form's rules are in `public/article-check.ts`, which the browser
+ * welcome e-mail give them. The form's rules are in `public/article-form.ts`, which the browser
  * loads too, and are re-exported here.
  */
 

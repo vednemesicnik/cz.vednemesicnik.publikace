@@ -179,11 +179,7 @@ export function ArticleCreatedPage(handle: Handle<ArticleCreatedPageProps>) {
             {isEveryWelcomeSent ? ` ${ALL_WELCOMES_SENT}` : null}
           </p>
         </div>
-        <a
-          class="vdm-btn vdm-btn--primary vdm-btn--lg vdm-btn--full-width"
-          href={documentUrl}
-          rel="noopener"
-        >
+        <a class="vdm-btn vdm-btn--primary vdm-btn--lg vdm-btn--full-width" href={documentUrl}>
           {OPEN_DOCUMENT_LABEL}
         </a>
         {artworksUrl === '' ? null : (
