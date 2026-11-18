@@ -8,6 +8,7 @@ import {
 } from './auth/session.server.ts'
 import { type AccessDirectory, createAccessDirectory } from './data/access.server.ts'
 import { createDriveAccountStore, type DriveAccountStore } from './data/drive-account.server.ts'
+import { createIssueStore } from './data/issues.server.ts'
 import { migrateDatabase, type OpenDatabase, openDatabase } from './data/database.server.ts'
 import { createSqliteSessionStorage } from './data/session-storage.server.ts'
 import { now } from './domain/time.ts'
@@ -173,4 +174,28 @@ export async function connectDriveAccount(app: TestApp): Promise<void> {
 /** Adds an administrator straight to the list, as `INITIAL_ADMIN_EMAIL` does at startup. */
 export async function seedAdmin(app: TestApp, email: string): Promise<void> {
   await app.directory.seedInitialAdmin(email, now())
+}
+
+const SEEDED_AT = Temporal.Instant.from('2026-11-18T09:00:00Z')
+
+/** An issue with its three folders stored, completed or not. */
+export async function seedIssue(
+  app: TestApp,
+  name = 'VDM_2026_6',
+  options: { isComplete?: boolean } = {},
+): Promise<number> {
+  let issues = createIssueStore(app.database)
+  let inserted = await issues.insert({
+    at: SEEDED_AT,
+    name,
+    startedByEmail: 'marie@vednemesicnik.test',
+    startedByName: 'Marie Horáková',
+  })
+  if (!inserted.ok) throw new Error('The issue was not seeded.')
+  let id = inserted.issue.id
+  await issues.setFolder(id, 'issue', `f-${name}`)
+  await issues.setFolder(id, 'articles', `f-${name}-articles`)
+  await issues.setFolder(id, 'print', `f-${name}-print`)
+  if (options.isComplete !== false) await issues.complete(id, SEEDED_AT)
+  return id
 }

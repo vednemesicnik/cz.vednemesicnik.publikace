@@ -10,6 +10,7 @@ import {
 import type { DriveAccessToken } from './access-token.server.ts'
 import type { DriveFolders } from './folders.server.ts'
 import { logDriveFailure } from './log.server.ts'
+import { createLock } from './one-at-a-time.server.ts'
 
 /**
  * Creating an issue and finishing one that Drive stopped halfway (`11d`, `12i`, `1jv85zum`).
@@ -52,24 +53,11 @@ const CHILD_NAMES: Record<Exclude<FolderKind, 'issue'>, string> = {
   print: PRINT_FOLDER_NAME,
 }
 
-/*
- * One step at a time per issue name. Two clicks on _Dokončit vydání_, two editors, or a finish
- * while the creation is still running would otherwise each see the same folder missing and each
- * create it. The app is one process on one machine, so a lock in memory is the whole of it.
- */
-const RUNNING = new Map<string, Promise<unknown>>()
+/* One step at a time per issue name: creating, finishing, or both at once (`createLock`). */
+const lock = createLock()
 
-async function oneAtATime<T>(name: string, run: () => Promise<T>): Promise<T> {
-  let key = issueNameKey(name)
-  let previous = RUNNING.get(key) ?? Promise.resolve()
-  let current = previous.then(run, run)
-  let settled = current.catch(() => undefined)
-  RUNNING.set(key, settled)
-  try {
-    return await current
-  } finally {
-    if (RUNNING.get(key) === settled) RUNNING.delete(key)
-  }
+function oneAtATime<T>(name: string, run: () => Promise<T>): Promise<T> {
+  return lock(issueNameKey(name), run)
 }
 
 /**
