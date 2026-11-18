@@ -43,7 +43,9 @@ const shellStyle = css({
   [PHONE]: { gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'auto 1fr' },
 })
 
-const topBarStyle = css({ display: 'none', [PHONE]: { display: 'flex' } })
+/* On a wrapper, never on the bar itself: `css()` lands in a cascade layer, and the design
+   system's unlayered `.vdm-topbar { display: flex }` would beat it on the same element. */
+const topBarStyle = css({ display: 'none', [PHONE]: { display: 'block' } })
 
 /* `contents` keeps the aside the grid's first track on a wide screen. */
 const sideStyle = css({ display: 'contents', [PHONE]: { display: 'none' } })
@@ -79,11 +81,13 @@ const MENU_ID = 'panel-menu'
 export function Layout(handle: Handle<LayoutProps>) {
   return () => (
     <div inert={handle.props.isInert === true ? true : undefined} mix={shellStyle}>
-      <header class="vdm-topbar" mix={topBarStyle}>
-        <VdmLogo size={28} />
-        <span class="vdm-topbar__title">{handle.props.title}</span>
-        <MenuButton controls={MENU_ID} />
-      </header>
+      <div mix={topBarStyle}>
+        <header class="vdm-topbar">
+          <VdmLogo size={28} />
+          <span class="vdm-topbar__title">{handle.props.title}</span>
+          <MenuButton controls={MENU_ID} />
+        </header>
+      </div>
       <div mix={sideStyle}>
         <Panel active={handle.props.active} person={handle.props.person} />
       </div>

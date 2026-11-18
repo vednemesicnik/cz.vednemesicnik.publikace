@@ -405,6 +405,26 @@ describe('finishing an issue (12i)', () => {
     }
   })
 
+  it('says the account is disconnected in an error toast, asking nothing of Drive (14c)', async () => {
+    let { app, browser } = await unfinished()
+    try {
+      await app.driveAccount.markDisconnected(Temporal.Now.instant())
+      let calls = app.drive.calls.length
+      await browser.post(`/issues/VDM_${YEAR}_6/finish`, { returnTo: 'overview' }, '/')
+
+      let text = textOf(await (await browser.get('/')).text())
+      assert.ok(
+        text.includes(
+          'Účet publikace.app@ je odpojený. Akce se soubory na Disku teď nejsou dostupné.',
+        ),
+      )
+      assert.equal(app.drive.calls.length, calls)
+      assert.ok(text.includes('Nedokončené'))
+    } finally {
+      await app.close()
+    }
+  })
+
   it('refuses a finish form sent without the token', async () => {
     let { app, browser } = await unfinished()
     try {

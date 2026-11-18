@@ -67,6 +67,8 @@ const COLUMNS = 'minmax(180px, 3fr) 120px minmax(110px, 1fr) minmax(130px, 1fr) 
 
 const PHONE = '@media (max-width: 767.98px)'
 
+/* Both on wrappers: `css()` sits in a cascade layer and loses to a design-system class on the
+   same element, `.vdm-table { display: flex }` among them. */
 const desktopOnlyStyle = css({ [PHONE]: { display: 'none' } })
 const phoneOnlyStyle = css({ display: 'none', [PHONE]: { display: 'block' } })
 
@@ -217,20 +219,22 @@ function IssueList(handle: Handle<{ filter: IssueFilter; issues: readonly Issue[
           </EmptyState>
         ) : (
           <>
-            <div aria-label="Vydání" class="vdm-table" mix={desktopOnlyStyle} role="table">
-              <TableRow columns={COLUMNS} isHead>
-                <span role="columnheader">Vydání</span>
-                <span role="columnheader">Stav</span>
-                <span role="columnheader">Články</span>
-                <span role="columnheader">Obrazová díla</span>
-                <span role="columnheader">Čeká na vás</span>
-                <span role="columnheader">
-                  <span class="vdm-sr-only">Akce</span>
-                </span>
-              </TableRow>
-              {shown.map((issue, index) => (
-                <IssueRow isLast={index === shown.length - 1} issue={issue} />
-              ))}
+            <div mix={desktopOnlyStyle}>
+              <div aria-label="Vydání" class="vdm-table" role="table">
+                <TableRow columns={COLUMNS} isHead>
+                  <span role="columnheader">Vydání</span>
+                  <span role="columnheader">Stav</span>
+                  <span role="columnheader">Články</span>
+                  <span role="columnheader">Obrazová díla</span>
+                  <span role="columnheader">Čeká na vás</span>
+                  <span role="columnheader">
+                    <span class="vdm-sr-only">Akce</span>
+                  </span>
+                </TableRow>
+                {shown.map((issue, index) => (
+                  <IssueRow isLast={index === shown.length - 1} issue={issue} />
+                ))}
+              </div>
             </div>
             <div mix={phoneOnlyStyle}>
               {shown.map((issue) => (

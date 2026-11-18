@@ -32,9 +32,11 @@ export const SelectedField = clientEntry(
             input.focus()
             input.select()
           })}
+          // `defaultValue`: a hydrated input given `value` is controlled, and typing into it
+          // would be undone on every keystroke.
+          defaultValue={value}
           name={name}
           type="text"
-          value={value}
         />
       )
     }

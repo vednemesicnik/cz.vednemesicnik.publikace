@@ -1,5 +1,5 @@
 import type { Handle } from 'remix/component'
-import { clientEntry, on, ref } from 'remix/component'
+import { clientEntry, on } from 'remix/component'
 
 export type MenuButtonProps = {
   /** The `id` of the `<dialog>` that holds the panel as a menu. */
@@ -24,26 +24,21 @@ export const MenuButton = clientEntry(
         aria-expanded={isOpen ? 'true' : 'false'}
         aria-haspopup="dialog"
         class="vdm-btn vdm-btn--ghost vdm-btn--sm vdm-topbar__menu"
-        mix={[
-          on('click', () => {
-            let dialog = document.getElementById(handle.props.controls)
-            if (!(dialog instanceof HTMLDialogElement)) return
-            dialog.showModal()
-            isOpen = true
-            handle.update()
-          }),
-          ref((_node, signal) => {
-            let dialog = document.getElementById(handle.props.controls)
-            dialog?.addEventListener(
-              'close',
-              () => {
-                isOpen = false
-                handle.update()
-              },
-              { signal },
-            )
-          }),
-        ]}
+        mix={on('click', () => {
+          let dialog = document.getElementById(handle.props.controls)
+          if (!(dialog instanceof HTMLDialogElement)) return
+          dialog.addEventListener(
+            'close',
+            () => {
+              isOpen = false
+              handle.update()
+            },
+            { once: true, signal: handle.signal },
+          )
+          dialog.showModal()
+          isOpen = true
+          handle.update()
+        })}
         type="button"
       >
         Menu
