@@ -614,7 +614,9 @@ function DriveAccountCard(handle: Handle<{ view: DriveAccountView }>) {
                 <p style={{ margin: 0 }}>{message}</p>
               </Callout>
             )}
-            <form action={routes.settings.account.connect.href()} method="post">
+            {/* A whole-page navigation, like the sign-in: the answer sends the browser to
+                accounts.google.com, which the client runtime's fetch could not follow. */}
+            <form action={routes.settings.account.connect.href()} data-rmx-document method="post">
               <CsrfField />
               <button class="vdm-btn vdm-btn--primary vdm-btn--sm" type="submit">
                 {state.status === 'not-connected' ? 'Připojit účet' : 'Připojit znovu'}

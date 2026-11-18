@@ -316,7 +316,12 @@ describe('settings, Účty Publikace', () => {
           'Připojte účet, aby aplikace mohla zakládat vydání a pracovat se soubory na Disku.',
         ),
       )
-      assert.ok(/<form [^>]*action="\/settings\/account\/connect"[^>]*method="post"/.test(html))
+      // A whole page: the answer is a redirect to Google, which a fetch could not follow.
+      assert.ok(
+        /<form [^>]*action="\/settings\/account\/connect"[^>]*data-rmx-document[^>]*method="post"/.test(
+          html,
+        ),
+      )
       assert.ok(text.includes('Připojit účet'))
       assert.ok(
         text.includes(

@@ -33,7 +33,8 @@ export function AccountBanner(handle: Handle<AccountBannerProps>) {
             : disconnectedBanner(expectedEmail)}
         </p>
         <div class="vdm-callout__actions">
-          <a class="vdm-btn vdm-btn--outline vdm-btn--sm" href={href}>
+          {/* A whole page, so the browser itself jumps to the card. */}
+          <a class="vdm-btn vdm-btn--outline vdm-btn--sm" data-rmx-document href={href}>
             {isOnSettings ? 'Přejít k účtu' : 'Do Nastavení'}
           </a>
         </div>
