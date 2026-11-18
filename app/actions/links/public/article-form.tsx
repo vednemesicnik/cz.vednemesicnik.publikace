@@ -172,6 +172,9 @@ export const ArticleForm = clientEntry(
       })
       if (!check.ok) {
         event.preventDefault()
+        /* The cards the check kept, a wholly empty one dropped, so each error stands under the
+           card its number names, as it does in the server's answer. */
+        cards = check.authors.map((author) => ({ ...author, id: nextId++ }))
         errors = check.errors
         handle.update()
         handle.queueTask(() => summary?.focus())
