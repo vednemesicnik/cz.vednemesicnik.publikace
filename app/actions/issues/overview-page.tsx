@@ -30,8 +30,12 @@ import { CsrfField } from '../../ui/csrf-field/component.tsx'
 import { Dialog } from '../../ui/dialog/component.tsx'
 import { DialogTitle } from '../../ui/dialog-title/component.tsx'
 import { EmptyState } from '../../ui/empty-state/component.tsx'
+import { EmptyStateText } from '../../ui/empty-state-text/component.tsx'
+import { EmptyStateTitle } from '../../ui/empty-state-title/component.tsx'
 import { Layout } from '../../ui/layout/component.tsx'
 import { ListHeader } from '../../ui/list-header/component.tsx'
+import { ListHeaderAction } from '../../ui/list-header-action/component.tsx'
+import { ListHeaderTitle } from '../../ui/list-header-title/component.tsx'
 import type { PanelPerson } from '../../ui/panel/component.tsx'
 import { ActionMenu } from '../../ui/public/action-menu/component.tsx'
 import { PendingActions } from '../../ui/public/pending-actions/component.tsx'
@@ -140,7 +144,7 @@ function IssueRow(handle: Handle<{ isLast: boolean; issue: Issue }>) {
           <IssueStateTag state={state} />
         </span>
         {state === 'unfinished' ? (
-          <span mix={spanCountsStyle} role="cell">
+          <span aria-colspan={3} mix={spanCountsStyle} role="cell">
             <FinishIssueForm issue={issue} placement="row" returnTo="overview" />
           </span>
         ) : (
@@ -212,7 +216,9 @@ function IssueList(handle: Handle<{ filter: IssueFilter; issues: readonly Issue[
           />
         </div>
         {shown.length === 0 && filter !== 'all' ? (
-          <EmptyState text={otherFilterText(counts.all)} title={emptyFilterTitle(filter)}>
+          <EmptyState>
+            <EmptyStateTitle>{emptyFilterTitle(filter)}</EmptyStateTitle>
+            <EmptyStateText>{otherFilterText(counts.all)}</EmptyStateText>
             <a class="vdm-btn vdm-btn--outline vdm-btn--sm" href={filterHref('all')}>
               Zobrazit vše
             </a>
@@ -325,27 +331,13 @@ function NewIssueDialogView(
             <p class="vdm-dialog__text" style={{ margin: 0 }}>
               {NEW_ISSUE_TEXT}
             </p>
-            <div class="vdm-field">
-              <label class="vdm-field__label" for="issue-name">
-                Název vydání
-              </label>
-              <SelectedField
-                describedBy={error === undefined ? 'issue-name-hint' : 'issue-name-error'}
-                id="issue-name"
-                isInvalid={error !== undefined}
-                name="name"
-                value={dialog.name}
-              />
-              {error === undefined ? (
-                <span class="vdm-field__hint" id="issue-name-hint">
-                  {NAME_HINT}
-                </span>
-              ) : (
-                <span class="vdm-field__hint vdm-field__hint--error" id="issue-name-error">
-                  {error}
-                </span>
-              )}
-            </div>
+            <SelectedField
+              error={error}
+              hint={NAME_HINT}
+              label="Název vydání"
+              name="name"
+              value={dialog.name}
+            />
           </div>
           <div class="vdm-dialog__actions">
             <PendingActions
@@ -380,13 +372,18 @@ export function OverviewPage(handle: Handle<OverviewPageProps>) {
           title="Vydání"
           toasts={toasts}
         >
-          <ListHeader title="Vydání">
-            <a class="vdm-btn vdm-btn--primary" href={routes.issues.new.href()}>
-              Nové vydání
-            </a>
+          <ListHeader>
+            <ListHeaderTitle>Vydání</ListHeaderTitle>
+            <ListHeaderAction>
+              <a class="vdm-btn vdm-btn--primary" href={routes.issues.new.href()}>
+                Nové vydání
+              </a>
+            </ListHeaderAction>
           </ListHeader>
           {issues.length === 0 ? (
-            <EmptyState text={EMPTY_TEXT} title={EMPTY_TITLE}>
+            <EmptyState>
+              <EmptyStateTitle>{EMPTY_TITLE}</EmptyStateTitle>
+              <EmptyStateText>{EMPTY_TEXT}</EmptyStateText>
               <a class="vdm-btn vdm-btn--outline vdm-btn--sm" href={routes.issues.new.href()}>
                 Nové vydání
               </a>

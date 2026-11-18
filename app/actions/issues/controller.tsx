@@ -1,5 +1,6 @@
 import { redirect } from 'remix/response/redirect'
 import { createController } from 'remix/router'
+import { Session } from 'remix/session'
 
 import type { SignedInUntilCookie } from '../../auth/session.server.ts'
 import { disconnectedBanner } from '../../domain/drive-account.ts'
@@ -33,6 +34,23 @@ import {
 function formText(context: PageContext, name: string): string {
   let value = (context.get(FormData) as FormData).get(name)
   return typeof value === 'string' ? value : ''
+}
+
+/*
+ * Which issue's folder _Dokončit vydání_ found gone, for the Callout of the detail it redirects
+ * to (`12i`). Kept by name, so it is shown on that issue's detail only, and taken once.
+ */
+const FOLDER_GONE_SESSION_KEY = 'issueFolderGone'
+
+function flashFolderGone(session: Session | undefined, name: string): void {
+  session?.flash(FOLDER_GONE_SESSION_KEY, name)
+}
+
+function takeFolderGone(session: Session | undefined, name: string): boolean {
+  let value = session?.get(FOLDER_GONE_SESSION_KEY)
+  if (value === undefined) return false
+  session?.unset(FOLDER_GONE_SESSION_KEY)
+  return value === name
 }
 
 function notFound(): Response {
@@ -105,6 +123,7 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
         return context.render(
           <DetailPage
             driveAccount={await driveView(context)}
+            isFolderGone={takeFolderGone(context.get(Session), issue.name)}
             issue={issue}
             person={context.auth.identity}
             toasts={context.get(Toasts) as readonly ToastMessage[]}
@@ -116,7 +135,8 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
        * _Dokončit vydání_ acts without a question (`12i`), so every answer but one is a toast on
        * the page it was clicked on: the row of the overview, or the detail. A gone issue folder
        * is the exception, a Callout in the detail that says how to bring it back, because it
-       * holds until somebody does.
+       * holds until somebody does; it goes there by a redirect too, so the address stays one a
+       * reload can open.
        */
       async finish(context) {
         let { setup, store } = issuesOf(context)
@@ -137,16 +157,10 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
             flashToast(context, finishedToast(issue.name))
             return back()
           case 'folder-gone':
-            return context.render(
-              <DetailPage
-                driveAccount={await driveView(context)}
-                isFolderGone
-                issue={issue}
-                person={context.auth.identity}
-                toasts={[]}
-              />,
-              { status: IN_THE_WAY },
-            )
+            flashFolderGone(context.get(Session), issue.name)
+            return redirect(routes.issues.show.href({ name: issue.name }), 303)
+          case 'not-found':
+            return notFound()
           case 'unavailable':
             flashToast(context, FINISH_UNAVAILABLE_TOAST, 'error')
             return back()

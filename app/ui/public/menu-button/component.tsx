@@ -18,6 +18,17 @@ export const MenuButton = clientEntry(
   function MenuButton(handle: Handle<MenuButtonProps>) {
     let isOpen = false
 
+    /* The next page is drawn into the same document, and an open `<dialog>` keeps its `open`
+       through that, so a menu left open would cover the page it led to. */
+    handle.frame.addEventListener(
+      'reloadStart',
+      () => {
+        let dialog = document.getElementById(handle.props.controls)
+        if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close()
+      },
+      { signal: handle.signal },
+    )
+
     return () => (
       <button
         aria-controls={handle.props.controls}

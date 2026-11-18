@@ -71,27 +71,27 @@ const menuDialogStyle = css({
   width: '100%',
 })
 
-const MENU_ID = 'panel-menu'
-
 /**
  * The screen of the editors-in-chief: the panel on the left and the page beside it, as every
  * screen from `11` on draws it. On a phone the top bar with _Menu_ stands over the page instead,
  * and _Menu_ opens the same panel over the whole screen (`11e`), the same on every screen.
  */
 export function Layout(handle: Handle<LayoutProps>) {
+  let menuId = `panel-menu-${handle.id}`
+
   return () => (
     <div inert={handle.props.isInert === true ? true : undefined} mix={shellStyle}>
       <div mix={topBarStyle}>
         <header class="vdm-topbar">
           <VdmLogo size={28} />
           <span class="vdm-topbar__title">{handle.props.title}</span>
-          <MenuButton controls={MENU_ID} />
+          <MenuButton controls={menuId} />
         </header>
       </div>
       <div mix={sideStyle}>
         <Panel active={handle.props.active} person={handle.props.person} />
       </div>
-      <dialog aria-label="Menu" id={MENU_ID} mix={menuDialogStyle}>
+      <dialog aria-label="Menu" id={menuId} mix={menuDialogStyle}>
         <Panel active={handle.props.active} isMenu person={handle.props.person} />
       </dialog>
       <main mix={mainStyle}>

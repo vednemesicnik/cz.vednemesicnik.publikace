@@ -66,13 +66,15 @@ const countStyle = css({ color: 'var(--text-tertiary)', fontWeight: 400, marginL
 
 const placeholderStyle = css({ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 })
 
-/** A section of the detail with its count: _Články 0_. */
+/** A section of the detail with its count: _Články 0_, named by its heading. */
 function Section(handle: Handle<{ children?: RemixNode; count?: number; title: string }>) {
+  let headingId = `section-${handle.id}`
+
   return () => {
     let { children, count, title } = handle.props
     return (
-      <section mix={sectionStyle}>
-        <h2>
+      <section aria-labelledby={headingId} mix={sectionStyle}>
+        <h2 id={headingId}>
           {title}
           {count === undefined ? null : <span mix={countStyle}>{count}</span>}
         </h2>

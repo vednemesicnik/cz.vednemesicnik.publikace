@@ -27,6 +27,7 @@ export const ActionMenu = clientEntry(
     let trigger: HTMLButtonElement | null = null
     let outside: AbortController | null = null
     let menuId = `action-menu-${handle.id}`
+    handle.signal.addEventListener('abort', () => outside?.abort(), { once: true })
 
     function close(shouldFocusTrigger: boolean): void {
       isOpen = false
@@ -39,7 +40,6 @@ export const ActionMenu = clientEntry(
     function open(): void {
       isOpen = true
       outside = new AbortController()
-      handle.signal.addEventListener('abort', () => outside?.abort())
       document.addEventListener(
         'pointerdown',
         (event) => {

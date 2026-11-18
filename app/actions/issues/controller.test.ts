@@ -34,6 +34,14 @@ async function newsroom(
   return { app, browser }
 }
 
+/** The text of the error toasts: the `alert` region, which holds nothing else. */
+function alertText(html: string): string {
+  let region = /<div [^>]*role="alert"[^>]*>(.*?)<\/div>\s*<div [^>]*role="status"/s.exec(html)
+  let inside = region?.[1] ?? ''
+  assert.ok(inside === '' || inside.includes('vdm-toast vdm-toast--error'))
+  return textOf(inside).trim()
+}
+
 function create(browser: TestBrowser, name: string): Promise<Response> {
   return browser.post('/issues/new', { name }, '/issues/new')
 }
@@ -241,8 +249,10 @@ describe('the dialog Nové vydání (11d, 14g)', () => {
       assert.ok(textOf(await empty.text()).includes('Vyplňte název vydání.'))
 
       let long = await create(browser, 'x'.repeat(101))
+      let longHtml = await long.text()
       assert.equal(long.status, 400)
-      assert.ok(textOf(await long.text()).includes('Zkraťte název na nejvýš 100 znaků.'))
+      assert.ok(textOf(longHtml).includes('Zkraťte název na nejvýš 100 znaků.'))
+      assert.ok(longHtml.includes(`value="${'x'.repeat(101)}"`))
 
       await create(browser, `VDM_${YEAR}_5`)
       let calls = app.drive.calls.length
@@ -369,19 +379,14 @@ describe('finishing an issue (12i)', () => {
       assert.equal(response.headers.get('Location'), `/issues/VDM_${YEAR}_6`)
 
       let html = await (await browser.get(`/issues/VDM_${YEAR}_6`)).text()
-      assert.match(html, /<div [^>]*class="vdm-toast vdm-toast--error"[^>]*>/)
-      assert.match(
-        /<div [^>]*class="vdm-toast vdm-toast--error"[^>]*>/.exec(html)?.[0] ?? '',
-        /role="alert"/,
-      )
-      assert.ok(textOf(html).includes('Zkuste dokončit vydání za chvíli znovu.'))
+      assert.equal(alertText(html), 'Zkuste dokončit vydání za chvíli znovu.')
       assert.ok(textOf(html).includes(`Vydání VDM_${YEAR}_6 není dokončené`))
     } finally {
       await app.close()
     }
   })
 
-  it('asks for the issue folder back when it is gone, creating nothing', async () => {
+  it('asks for the issue folder back when it is gone, on the detail, creating nothing', async () => {
     let { app, browser } = await unfinished()
     try {
       let issueFolder = app.drive.folders()[0]
@@ -390,15 +395,15 @@ describe('finishing an issue (12i)', () => {
 
       let response = await browser.post(
         `/issues/VDM_${YEAR}_6/finish`,
-        { returnTo: 'detail' },
-        `/issues/VDM_${YEAR}_6`,
+        { returnTo: 'overview' },
+        '/',
       )
-      assert.equal(response.status, 409)
-      assert.ok(
-        textOf(await response.text()).includes(
-          `Obnovte složku vydání VDM_${YEAR}_6 z koše, nebo ji vraťte na sdílený disk Publikace. Pak zvolte Dokončit vydání.`,
-        ),
-      )
+      assert.equal(response.status, 303)
+      assert.equal(response.headers.get('Location'), `/issues/VDM_${YEAR}_6`)
+
+      let gone = `Obnovte složku vydání VDM_${YEAR}_6 z koše, nebo ji vraťte na sdílený disk Publikace. Pak zvolte Dokončit vydání.`
+      assert.ok(textOf(await (await browser.get(`/issues/VDM_${YEAR}_6`)).text()).includes(gone))
+      assert.ok(!textOf(await (await browser.get(`/issues/VDM_${YEAR}_6`)).text()).includes(gone))
       assert.equal(app.drive.folders().length, before)
     } finally {
       await app.close()
@@ -410,16 +415,21 @@ describe('finishing an issue (12i)', () => {
     try {
       await app.driveAccount.markDisconnected(Temporal.Now.instant())
       let calls = app.drive.calls.length
-      await browser.post(`/issues/VDM_${YEAR}_6/finish`, { returnTo: 'overview' }, '/')
+      let response = await browser.post(
+        `/issues/VDM_${YEAR}_6/finish`,
+        { returnTo: 'overview' },
+        '/',
+      )
+      assert.equal(response.status, 303)
+      assert.equal(response.headers.get('Location'), '/')
 
-      let text = textOf(await (await browser.get('/')).text())
-      assert.ok(
-        text.includes(
-          'Účet publikace.app@ je odpojený. Akce se soubory na Disku teď nejsou dostupné.',
-        ),
+      let html = await (await browser.get('/')).text()
+      assert.equal(
+        alertText(html),
+        'Účet publikace.app@ je odpojený. Akce se soubory na Disku teď nejsou dostupné.',
       )
       assert.equal(app.drive.calls.length, calls)
-      assert.ok(text.includes('Nedokončené'))
+      assert.ok(textOf(html).includes('Nedokončené'))
     } finally {
       await app.close()
     }
