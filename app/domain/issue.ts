@@ -72,10 +72,10 @@ const MAX_NAME_LENGTH = 100
 
 /**
  * What a duplicate is judged by: case and the spaces around the name do not count, as in the
- * script (`11d`).
+ * script (`11d`), and neither does how a pasted accent was encoded.
  */
 export function issueNameKey(name: string): string {
-  return name.trim().toLowerCase()
+  return name.normalize('NFC').trim().toLowerCase()
 }
 
 export type NameCheck = { message: string; ok: false } | { name: string; ok: true }
@@ -88,7 +88,7 @@ export const LONG_NAME_MESSAGE = 'Zkraťte název na nejvýš 100 znaků.'
  * be called otherwise, and the suggested number keeps the form by itself (`11d`).
  */
 export function checkIssueName(value: string): NameCheck {
-  let name = value.trim()
+  let name = value.normalize('NFC').trim()
   if (name === '') return { message: EMPTY_NAME_MESSAGE, ok: false }
   if ([...name].length > MAX_NAME_LENGTH) return { message: LONG_NAME_MESSAGE, ok: false }
   return { name, ok: true }
@@ -120,9 +120,7 @@ export function suggestNextName(names: readonly string[], today: Temporal.Instan
   return isAnyNumbered ? `VDM_${year}_${highest + 1}` : ''
 }
 
-/* `11d`, as drawn. The sentence about the Evidence, the Registr and the link stands as the
-   design has it; it is true once the record queue and the link exist, before the app runs for
-   anyone. */
+/* `11d`, as drawn, the Evidence, the Registr and the link included. */
 export const NEW_ISSUE_TEXT =
   'Na sdíleném disku Publikace vznikne složka vydání se složkami Články a podklady pro tisk. Evidence a záznam v Registru se doplní následně. Odkaz pro redakci na nový článek bude v detailu vydání.'
 
@@ -162,13 +160,15 @@ export function unfinishedText(missing: readonly FolderKind[]): string {
   }
 
   let labels = missing.filter((kind) => kind !== 'issue').map((kind) => FOLDER_LABELS[kind])
+  /* Every folder stored and the issue still unfinished: the process stopped just before the
+     last step, and finishing only records it. */
+  if (labels.length === 0) return 'Zvolte Dokončit vydání.'
   let what =
     labels.length === 1 ? `chybějící složka ${labels[0]}` : `chybějící složky ${labels.join(' a ')}`
   return `Zvolte Dokončit vydání. Doplní se ${what}; složka vydání už vznikla.`
 }
 
-/* The toast after creating points at the link, as drawn (`11d`); the link arrives with its own
-   issue before the app runs for anyone. */
+/* As drawn (`11d`), the link included. */
 export function createdToast(name: string): string {
   return `Vydání ${name} je založené. Použijte Odkaz pro redakci.`
 }

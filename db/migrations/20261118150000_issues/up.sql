@@ -23,5 +23,6 @@ CREATE TABLE issues (
     completed_at IS NULL
     OR (folder_id IS NOT NULL AND articles_folder_id IS NOT NULL AND print_folder_id IS NOT NULL)
   ),
+  CHECK (name <> '' AND name_key <> ''),
   CHECK (closed_at IS NULL OR completed_at IS NOT NULL)
 ) STRICT;

@@ -53,7 +53,14 @@ export function createFakeDrive(): FakeDrive {
       return Response.json({ id })
     }
 
+    /* Drive answers 404 for a file on a shared drive asked for without these, so the fake does
+       too: a call that forgets them fails here as it would there. */
+    let isOnSharedDrives = url.searchParams.get('supportsAllDrives') === 'true'
+
     if (method === 'GET' && url.pathname === '/drive/v3/files') {
+      if (!isOnSharedDrives || url.searchParams.get('includeItemsFromAllDrives') !== 'true') {
+        return Response.json({ error: { message: 'File not found' } }, { status: 404 })
+      }
       let query = url.searchParams.get('q') ?? ''
       let parent = /^'([^']*)' in parents/.exec(query)?.[1]
       let name = /name = '((?:[^'\\]|\\.)*)'/.exec(query)?.[1]?.replace(/\\(.)/g, '$1')
@@ -66,7 +73,7 @@ export function createFakeDrive(): FakeDrive {
     let match = /^\/drive\/v3\/files\/([^/]+)$/.exec(url.pathname)
     if (method === 'GET' && match !== null) {
       let folder = folders.get(decodeURIComponent(match[1] ?? ''))
-      if (folder === undefined)
+      if (folder === undefined || !isOnSharedDrives)
         return Response.json({ error: { message: 'File not found' } }, { status: 404 })
       return Response.json({ id: folder.id, trashed: folder.isTrashed })
     }

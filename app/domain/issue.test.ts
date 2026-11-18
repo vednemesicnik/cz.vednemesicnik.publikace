@@ -50,8 +50,9 @@ describe('an issue name (11d)', () => {
     assert.equal(checkIssueName('Zvláštní vydání 2026').ok, true)
   })
 
-  it('is compared without case or surrounding spaces', () => {
+  it('is compared without case, surrounding spaces or how an accent was encoded', () => {
     assert.equal(issueNameKey(' vdm_2026_5 '), issueNameKey('VDM_2026_5'))
+    assert.equal(issueNameKey('Zvla\u0301s\u030Ctni\u0301'), issueNameKey('Zvláštní'))
   })
 })
 
@@ -112,6 +113,10 @@ describe('what an unfinished issue lacks (11d, 12i)', () => {
       unfinishedText(['print']),
       'Zvolte Dokončit vydání. Doplní se chybějící složka podklady pro tisk; složka vydání už vznikla.',
     )
+  })
+
+  it('keeps to the step when every folder is stored and only the record is missing', () => {
+    assert.equal(unfinishedText([]), 'Zvolte Dokončit vydání.')
   })
 
   it('does not claim the issue folder exists when it does not', () => {

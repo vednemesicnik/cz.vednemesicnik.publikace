@@ -3,6 +3,7 @@ import {
   ARTICLES_FOLDER_NAME,
   type FolderKind,
   type Issue,
+  issueNameKey,
   missingFolders,
   PRINT_FOLDER_NAME,
 } from '../domain/issue.ts'
@@ -40,6 +41,8 @@ export type CreateOutcome =
 export type FinishOutcome =
   | { issue: Issue; kind: 'finished' }
   | { kind: 'folder-gone' }
+  /* The row went while this waited: its creation failed at the issue folder. */
+  | { kind: 'not-found' }
   | { kind: Unreached }
 
 export type Starter = { displayName: string; email: string }
@@ -49,26 +52,50 @@ const CHILD_NAMES: Record<Exclude<FolderKind, 'issue'>, string> = {
   print: PRINT_FOLDER_NAME,
 }
 
+/*
+ * One step at a time per issue name. Two clicks on _Dokončit vydání_, two editors, or a finish
+ * while the creation is still running would otherwise each see the same folder missing and each
+ * create it. The app is one process on one machine, so a lock in memory is the whole of it.
+ */
+const RUNNING = new Map<string, Promise<unknown>>()
+
+async function oneAtATime<T>(name: string, run: () => Promise<T>): Promise<T> {
+  let key = issueNameKey(name)
+  let previous = RUNNING.get(key) ?? Promise.resolve()
+  let current = previous.then(run, run)
+  let settled = current.catch(() => undefined)
+  RUNNING.set(key, settled)
+  try {
+    return await current
+  } finally {
+    if (RUNNING.get(key) === settled) RUNNING.delete(key)
+  }
+}
+
 /**
  * A name already in the app is refused before Google is asked anything. The token comes next,
  * before the row is written, so an account that is not connected leaves nothing behind and the
  * dialog can say so with the field still filled (`14g`). The insert checks the name again, in
  * its own transaction, for two editors sending the same name at once.
  */
-export async function createIssue(
+export function createIssue(
   setup: IssueSetup,
   name: string,
   starter: Starter,
 ): Promise<CreateOutcome> {
+  return oneAtATime(name, () => create(setup, name, starter))
+}
+
+async function create(setup: IssueSetup, name: string, starter: Starter): Promise<CreateOutcome> {
   let existing = await setup.store.findByName(name)
   if (existing !== null) return { existingName: existing.name, kind: 'duplicate' }
 
-  let token = await setup.token()
-  if (!token.ok) return { kind: token.reason }
   if (setup.issuesFolderId === '') {
     logDriveFailure('an issue was not created', 'ISSUES_FOLDER_ID is empty')
     return { kind: 'unavailable' }
   }
+  let token = await setup.token()
+  if (!token.ok) return { kind: token.reason }
 
   let inserted = await setup.store.insert({
     at: setup.now(),
@@ -109,23 +136,32 @@ export async function createIssue(
  * itself is never looked for by name: a folder of the same name may be an issue from before the
  * app.
  */
-export async function finishIssue(setup: IssueSetup, issue: Issue): Promise<FinishOutcome> {
+export function finishIssue(setup: IssueSetup, issue: Issue): Promise<FinishOutcome> {
+  return oneAtATime(issue.name, async () => {
+    /* Read again under the lock: the caller's copy may predate a step that just finished. */
+    let current = await setup.store.findByName(issue.name)
+    return current === null ? { kind: 'not-found' } : finish(setup, current)
+  })
+}
+
+async function finish(setup: IssueSetup, issue: Issue): Promise<FinishOutcome> {
   if (missingFolders(issue).length === 0) {
     await setup.store.complete(issue.id, setup.now())
     return { issue: await reload(setup, issue), kind: 'finished' }
+  }
+
+  let issueFolderId = issue.folderIds.issue
+  if (issueFolderId === null && setup.issuesFolderId === '') {
+    logDriveFailure('an issue was not finished', 'ISSUES_FOLDER_ID is empty')
+    return { kind: 'unavailable' }
   }
 
   let token = await setup.token()
   if (!token.ok) return { kind: token.reason }
   let folders = setup.folders(token.accessToken)
 
-  let issueFolderId = issue.folderIds.issue
   if (issueFolderId === null) {
     /* Only a process that stopped between the row and the first folder leaves this. */
-    if (setup.issuesFolderId === '') {
-      logDriveFailure('an issue was not finished', 'ISSUES_FOLDER_ID is empty')
-      return { kind: 'unavailable' }
-    }
     let created = await folders.create(setup.issuesFolderId, issue.name)
     if (!created.ok) return { kind: 'unavailable' }
     issueFolderId = created.id

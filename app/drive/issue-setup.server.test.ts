@@ -3,20 +3,19 @@ import { describe, it } from 'remix/test'
 
 import { createIssueStore } from '../data/issues.server.ts'
 import { now } from '../domain/time.ts'
-import { createTestApp, type TestApp } from '../test-app.server.ts'
+import { createTestApp, TEST_ISSUES_FOLDER, type TestApp } from '../test-app.server.ts'
 import type { DriveAccessToken } from './access-token.server.ts'
 import { createFakeDrive, type FakeDrive } from './fake-drive.server.ts'
 import { createDriveFolders } from './folders.server.ts'
 import { createIssue, finishIssue, type IssueSetup } from './issue-setup.server.ts'
 
-const ISSUES_FOLDER = 'fake-issues-folder'
 const MARIE = { displayName: 'Marie Horáková', email: 'marie@vednemesicnik.test' }
 const TOKEN: DriveAccessToken = { accessToken: 'test-access-token', expiresAt: now(), ok: true }
 
 function setupOn(app: TestApp, drive: FakeDrive, token = TOKEN): IssueSetup {
   return {
     folders: (accessToken) => createDriveFolders({ accessToken, fetch: drive.fetch }),
-    issuesFolderId: ISSUES_FOLDER,
+    issuesFolderId: TEST_ISSUES_FOLDER,
     now,
     store: createIssueStore(app.database),
     token: async () => token,
@@ -43,7 +42,7 @@ describe('creating an issue (11d)', () => {
       assert.deepEqual(
         drive.folders().map((folder) => [folder.name, folder.parentId]),
         [
-          ['VDM_2026_6', ISSUES_FOLDER],
+          ['VDM_2026_6', TEST_ISSUES_FOLDER],
           ['Články', issueFolder?.id],
           ['_Podklady_pro_tisk', issueFolder?.id],
         ],
@@ -64,6 +63,29 @@ describe('creating an issue (11d)', () => {
 
       assert.deepEqual(outcome, { kind: 'not-connected' })
       assert.deepEqual(drive.calls, [])
+      assert.deepEqual(await setup.store.list(), [])
+    }))
+
+  it('writes nothing while the account is disconnected or Google does not answer', () =>
+    withApp(async (app, drive) => {
+      for (let reason of ['disconnected', 'unavailable'] as const) {
+        let setup = setupOn(app, drive, { ok: false, reason })
+        assert.deepEqual(await createIssue(setup, 'VDM_2026_6', MARIE), { kind: reason })
+        assert.deepEqual(await setup.store.list(), [])
+      }
+    }))
+
+  it('writes nothing and asks nothing without the issues folder', () =>
+    withApp(async (app, drive) => {
+      let setup = { ...setupOn(app, drive), issuesFolderId: '' }
+      let asked = 0
+      setup.token = async () => {
+        asked++
+        return TOKEN
+      }
+
+      assert.deepEqual(await createIssue(setup, 'VDM_2026_6', MARIE), { kind: 'unavailable' })
+      assert.equal(asked, 0)
       assert.deepEqual(await setup.store.list(), [])
     }))
 
@@ -165,6 +187,51 @@ describe('finishing an issue (12i)', () => {
 
       assert.deepEqual(await finishIssue(setup, issue), { kind: 'unavailable' })
       assert.equal((await setup.store.findByName('VDM_2026_6'))?.completedAt, null)
+    }))
+
+  it('creates the issue folder too when the process stopped before it', () =>
+    withApp(async (app, drive) => {
+      let setup = setupOn(app, drive)
+      let inserted = await setup.store.insert({
+        at: now(),
+        name: 'VDM_2026_6',
+        startedByEmail: MARIE.email,
+        startedByName: MARIE.displayName,
+      })
+      if (!inserted.ok) throw new Error('not inserted')
+
+      let outcome = await finishIssue(setup, inserted.issue)
+      assert.equal(outcome.kind, 'finished')
+      assert.deepEqual(
+        drive.folders().map((folder) => folder.name),
+        ['VDM_2026_6', 'Články', '_Podklady_pro_tisk'],
+      )
+    }))
+
+  it('creates each folder once when two finishes run at the same time', () =>
+    withApp(async (app, drive) => {
+      let { issue, setup } = await unfinished(app, drive, 'Články')
+      let before = drive.folders().length
+
+      let outcomes = await Promise.all([finishIssue(setup, issue), finishIssue(setup, issue)])
+      assert.deepEqual(
+        outcomes.map((outcome) => outcome.kind),
+        ['finished', 'finished'],
+      )
+      assert.deepEqual(
+        drive
+          .folders()
+          .slice(before)
+          .map((folder) => folder.name),
+        ['Články', '_Podklady_pro_tisk'],
+      )
+    }))
+
+  it('answers not-found for an issue whose row is gone', () =>
+    withApp(async (app, drive) => {
+      let { issue, setup } = await unfinished(app, drive, 'Články')
+      await setup.store.remove(issue.id)
+      assert.deepEqual(await finishIssue(setup, issue), { kind: 'not-found' })
     }))
 
   it('asks nothing of Drive while the account is disconnected', () =>

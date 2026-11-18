@@ -43,10 +43,7 @@ export function takeToasts(): Middleware<{
   }
 }
 
-/* A bare string is what a session written before toasts had a tone holds: read as neutral, so
-   such a session shows its message instead of throwing. */
 function readToast(value: unknown): ToastMessage | null {
-  if (typeof value === 'string') return value === '' ? null : { message: value, tone: 'neutral' }
   if (typeof value !== 'object' || value === null) return null
   let { message, tone } = value as { message?: unknown; tone?: unknown }
   if (typeof message !== 'string' || message === '') return null

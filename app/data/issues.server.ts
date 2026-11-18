@@ -31,6 +31,7 @@ export type IssueStore = {
   list(): Promise<Issue[]>
   /** Only while Drive refused the issue folder itself, so nothing of the issue exists. */
   remove(id: number): Promise<void>
+  /** Stores a folder's ID once; a folder already stored is never replaced. */
   setFolder(id: number, kind: FolderKind, folderId: string): Promise<void>
 }
 
@@ -85,7 +86,7 @@ export function createIssueStore(database: Database): IssueStore {
 
         await db.exec(
           sql`INSERT INTO issues (name, name_key, started_at, started_by_email, started_by_name)
-              VALUES (${name.trim()}, ${key}, ${stamp(at)}, ${startedByEmail}, ${startedByName})`,
+              VALUES (${name.normalize('NFC').trim()}, ${key}, ${stamp(at)}, ${startedByEmail}, ${startedByName})`,
         )
         let issue = await byKey(db, key)
         if (issue === null) throw new Error('The issue row was not written.')
@@ -115,13 +116,17 @@ export function createIssueStore(database: Database): IssueStore {
     async setFolder(id, kind, folderId) {
       /* Three statements rather than a column name in the SQL, which a template cannot bind. */
       if (kind === 'issue') {
-        await database.exec(sql`UPDATE issues SET folder_id = ${folderId} WHERE id = ${id}`)
+        await database.exec(
+          sql`UPDATE issues SET folder_id = ${folderId} WHERE id = ${id} AND folder_id IS NULL`,
+        )
       } else if (kind === 'articles') {
         await database.exec(
-          sql`UPDATE issues SET articles_folder_id = ${folderId} WHERE id = ${id}`,
+          sql`UPDATE issues SET articles_folder_id = ${folderId} WHERE id = ${id} AND articles_folder_id IS NULL`,
         )
       } else {
-        await database.exec(sql`UPDATE issues SET print_folder_id = ${folderId} WHERE id = ${id}`)
+        await database.exec(
+          sql`UPDATE issues SET print_folder_id = ${folderId} WHERE id = ${id} AND print_folder_id IS NULL`,
+        )
       }
     },
   }

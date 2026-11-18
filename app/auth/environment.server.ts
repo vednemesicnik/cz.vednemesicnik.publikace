@@ -117,8 +117,8 @@ export function driveAccountEmail(): string {
 }
 
 /**
- * The folder on the shared drive _Publikace_ that holds every issue. Empty outside production,
- * where creating an issue then answers _Disk teď neodpovídá_ and says why in the log.
+ * The folder on the shared drive _Publikace_ that holds every issue. Optional outside
+ * production; without it, creating an issue answers _Disk teď neodpovídá_ and logs why.
  */
 export function issuesFolderId(): string {
   return isProduction() ? required('ISSUES_FOLDER_ID') : optional('ISSUES_FOLDER_ID')

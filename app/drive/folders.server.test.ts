@@ -48,6 +48,24 @@ describe('the Drive folder calls', () => {
     }
   })
 
+  it('asks with the shared-drive parameters, without which Drive answers 404', async () => {
+    let urls: URL[] = []
+    let folders = createDriveFolders({
+      accessToken: 'test',
+      fetch: async (url) => {
+        urls.push(new URL(String(url)))
+        return Response.json({ files: [], id: 'fake-folder-1', trashed: false })
+      },
+    })
+    await folders.presence('fake-folder-1')
+    await folders.findChild('fake-parent', 'Články')
+
+    let [presence, list] = urls
+    assert.equal(presence?.searchParams.get('supportsAllDrives'), 'true')
+    assert.equal(list?.searchParams.get('supportsAllDrives'), 'true')
+    assert.equal(list?.searchParams.get('includeItemsFromAllDrives'), 'true')
+  })
+
   it('tells a folder in the bin or deleted from one that is there', async () => {
     let check = (fetch: typeof globalThis.fetch) =>
       createDriveFolders({ accessToken: 'test', fetch }).presence('fake-folder-1')
