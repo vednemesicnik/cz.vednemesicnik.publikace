@@ -5,11 +5,13 @@ what it does; this file is about working in it without breaking something expens
 
 ## Where the project stands
 
-**A skeleton on a finished design.** The app is drawn in the design canvas
+**The first screens on a finished design.** The app is drawn in the design canvas
 ([docs/design-project.md](docs/design-project.md)) and the open decisions are on its page
-`03 K rozhodnutí`. The code is the skeleton every screen builds on: Remix 3 serving `/` with the
-editors-in-chief's panel behind Google sign-in, Přístup in `/settings`, the magazine's design
-system, and a SQLite database that migrates on startup. Beside it sits the setup shared with `cz.vednemesicnik` and
+`03 K rozhodnutí`. Built so far, on Remix 3 with a SQLite database that migrates on startup:
+Google sign-in and Přístup in `/settings` with the `publikace.app@` account, the issues (`/`,
+`/issues/new`, `/issues/{name}`) with their folders on Drive, and the newsroom's link, whose
+public page `/l/{key}/article` creates an article with its Doc and mails its authors. Nothing
+runs on Fly.io yet, and the background jobs still read the sheets. Beside it sits the setup shared with `cz.vednemesicnik` and
 `cz.vednemesicnik.billing`: the workflow skills, the agent rules, the designer agent, the PR and
 issue templates, CI and the hooks.
 
