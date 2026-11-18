@@ -50,14 +50,19 @@ const CHILD_NAMES: Record<Exclude<FolderKind, 'issue'>, string> = {
 }
 
 /**
- * The token is asked for before the row is written, so an account that is not connected leaves
- * nothing behind and the dialog can say so with the field still filled (`14g`).
+ * A name already in the app is refused before Google is asked anything. The token comes next,
+ * before the row is written, so an account that is not connected leaves nothing behind and the
+ * dialog can say so with the field still filled (`14g`). The insert checks the name again, in
+ * its own transaction, for two editors sending the same name at once.
  */
 export async function createIssue(
   setup: IssueSetup,
   name: string,
   starter: Starter,
 ): Promise<CreateOutcome> {
+  let existing = await setup.store.findByName(name)
+  if (existing !== null) return { existingName: existing.name, kind: 'duplicate' }
+
   let token = await setup.token()
   if (!token.ok) return { kind: token.reason }
   if (setup.issuesFolderId === '') {
