@@ -12,9 +12,9 @@ import type { Middleware } from 'remix/router'
  * a body is read. A forged cross-site send gains nothing a direct one would not, because there is
  * no sign-in to ride on.
  *
- * The key is the whole of that protection, so a log line names the page without it
- * (`/l/…/article`): logs are read and exported for other reasons, and on Fly.io they leave the
- * machine.
+ * Of those, the key is the one whoever holds it can use from anywhere, so a log line names the
+ * page without it (`/l/…/article`): logs are read and exported for other reasons, and on Fly.io
+ * they leave the machine.
  */
 
 const PUBLIC_LINK_PREFIX = '/l/'
