@@ -62,11 +62,11 @@ describe('the Mailer', () => {
 describe('the welcome e-mail', () => {
   it('escapes what the form gave and leaves out the co-author line for one author', () => {
     let message = welcomeEmail({
-      articleId: 7,
       articleName: 'Jídelna <b>po roce</b>',
       artworksUrl: 'https://publikace.vednemesicnik.test/l/p3Vd8nL1sQ6e/artworks',
       coauthors: [],
       documentUrl: 'https://docs.google.com/document/d/d-1/edit',
+      formKey: '5b0c7a52-3f1e-4d6a-9c2b-8e4f1a7d6c30',
       issueName: 'VDM_2026_5',
       to: 'Tereza.Vlkova@external.test',
     })
@@ -74,6 +74,9 @@ describe('the welcome e-mail', () => {
     assert.equal(message.subject, 'Článek „Jídelna <b>po roce</b>“ je ve vydání VDM_2026_5')
     assert.ok(message.htmlBody.includes('Jídelna &lt;b&gt;po roce&lt;/b&gt;'))
     assert.ok(!message.htmlBody.includes('podílí'))
-    assert.equal(message.idempotencyKey, 'article-welcome:7:tereza.vlkova@external.test')
+    assert.equal(
+      message.idempotencyKey,
+      'article-welcome:5b0c7a52-3f1e-4d6a-9c2b-8e4f1a7d6c30:tereza.vlkova@external.test',
+    )
   })
 })

@@ -13,10 +13,11 @@ export const SENDER_NAME = 'Vedneměsíčník – Publikace'
 
 export type WelcomeDetails = {
   artworksUrl: string
-  articleId: number
   articleName: string
   coauthors: readonly string[]
   documentUrl: string
+  /** The article's form key: unlike its row ID, never given to another article. */
+  formKey: string
   issueName: string
   to: string
 }
@@ -36,10 +37,11 @@ export function welcomeSubject(articleName: string, issueName: string): string {
 
 /**
  * The same article and author always give the same key, so a send retried after a timeout
- * reaches the author once.
+ * reaches the author once. The key is the form's, because a row ID can come back after a
+ * restore and the Mailer would then take a new article's e-mail for one it already sent.
  */
-export function welcomeIdempotencyKey(articleId: number, email: string): string {
-  return `article-welcome:${articleId}:${email.toLowerCase()}`
+export function welcomeIdempotencyKey(formKey: string, email: string): string {
+  return `article-welcome:${formKey}:${email.toLowerCase()}`
 }
 
 const PARAGRAPH = 'margin:0 0 16px;font-size:15px;line-height:1.6;color:#121418'
@@ -67,7 +69,7 @@ export function welcomeEmail(details: WelcomeDetails): MailMessage {
 
   return {
     htmlBody: `<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>${escapeHtml(welcomeSubject(details.articleName, details.issueName))}</title></head><body style="margin:0;padding:24px;font-family:Inter,Arial,sans-serif">${body}</body></html>`,
-    idempotencyKey: welcomeIdempotencyKey(details.articleId, details.to),
+    idempotencyKey: welcomeIdempotencyKey(details.formKey, details.to),
     name: SENDER_NAME,
     subject: welcomeSubject(details.articleName, details.issueName),
     to: details.to,

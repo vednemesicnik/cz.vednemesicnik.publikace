@@ -71,7 +71,10 @@ export type ArticleStore = {
   ): Promise<void>
   /** Attempts whose cleanup failed, safe to take while other requests run. */
   pendingCleanups(): Promise<ArticleRow[]>
-  /** Attempts through a link since a moment, committed or not: what the limit counts. */
+  /**
+   * Attempts through a link since a moment, under way or committed: what the limit counts. A
+   * failed one is discarded and no longer counts, as it sent nothing.
+   */
   recentAttempts(linkId: number, since: Temporal.Instant): Promise<number>
   /** Stores a file's ID once; one already stored is never replaced. */
   setDriveId(id: number, kind: DriveFileKind, fileId: string): Promise<void>

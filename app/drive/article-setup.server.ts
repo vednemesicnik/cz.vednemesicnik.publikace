@@ -83,10 +83,9 @@ export function createArticle(
 }
 
 async function create(setup: ArticleSetup, input: NewArticle): Promise<CreateArticleOutcome> {
-  let existing = await setup.articles.findByFormKey(input.formKey)
-  if (existing?.createdAt != null) return createdOutcome(setup, existing)
-
   let link = await setup.links.findByKey(input.linkKey)
+  let replayed = await replayOf(setup, input.formKey, link?.id ?? null)
+  if (replayed !== null) return replayed
   let issue = link === null ? null : await setup.issues.findById(link.issueId)
   if (
     link === null ||
@@ -96,20 +95,16 @@ async function create(setup: ArticleSetup, input: NewArticle): Promise<CreateArt
   ) {
     return { kind: 'link-gone' }
   }
-
-  let since = setup.now().subtract({ minutes: 60 })
-  if (
-    existing === null &&
-    (await setup.articles.recentAttempts(link.id, since)) >= SUBMISSIONS_PER_HOUR
-  ) {
-    return { kind: 'limited' }
-  }
+  /* A form key another link's form drew: only a crafted send carries one. */
+  let existing = await setup.articles.findByFormKey(input.formKey)
+  if (existing !== null && existing.linkId !== link.id) return { kind: 'unavailable' }
+  let isRetry = existing !== null
 
   let token = await setup.token()
   if (!token.ok) return { kind: token.reason }
   let files = setup.files(token.accessToken)
 
-  await cleanUpPending(setup, files)
+  await cleanUpPending(setup, files, input.formKey)
   /* This form's own earlier attempt is still waiting for its files to reach the bin. */
   if ((await setup.articles.findByFormKey(input.formKey)) !== null) return { kind: 'unavailable' }
 
@@ -124,26 +119,67 @@ async function create(setup: ArticleSetup, input: NewArticle): Promise<CreateArt
     return { kind: 'unavailable' }
   }
 
-  let { attempt } = await setup.articles.startAttempt({
-    at: setup.now(),
-    authors: input.authors,
-    formKey: input.formKey,
-    issueId: issue.id,
-    linkId: link.id,
-    name: input.name,
+  /* The count and the row in one step per link, so sends in parallel cannot all pass the limit. */
+  let since = setup.now().subtract({ minutes: 60 })
+  let attempt = await lock(`link:${link.id}`, async () => {
+    if (!isRetry && (await setup.articles.recentAttempts(link.id, since)) >= SUBMISSIONS_PER_HOUR) {
+      return null
+    }
+    let started = await setup.articles.startAttempt({
+      at: setup.now(),
+      authors: input.authors,
+      formKey: input.formKey,
+      issueId: issue.id,
+      linkId: link.id,
+      name: input.name,
+    })
+    return started.attempt
   })
+  if (attempt === null) return { kind: 'limited' }
 
-  let isMade = await makeFiles(setup, files, attempt, issue, articlesFolderId)
-  if (!isMade) {
+  let committed: Article | null = null
+  try {
+    if (await makeFiles(setup, files, attempt, issue, articlesFolderId)) {
+      committed = await setup.articles.commit(attempt.id, setup.now())
+    }
+  } catch (error) {
+    logDriveFailure(
+      'an article was not created',
+      error instanceof Error ? error.message : 'unknown error',
+    )
+  }
+  if (committed === null) {
     await cleanUp(setup, files, attempt, articlesFolderId)
     let after = await setup.folders(token.accessToken).presence(articlesFolderId)
     return { kind: after === 'gone' ? 'folder-gone' : 'unavailable' }
   }
 
-  let committed = await setup.articles.commit(attempt.id, setup.now())
   await sendWelcomes(setup, committed, issue)
   let current = (await setup.articles.findByFormKey(input.formKey)) ?? committed
   return createdOutcome(setup, current)
+}
+
+/**
+ * The answer a second send of a form gets once its article exists: the same `20d`, also after
+ * the link was replaced in between, but only through the link the form was drawn for.
+ */
+export async function replayedArticle(
+  setup: ArticleSetup,
+  formKey: string,
+  linkKey: string,
+): Promise<CreateArticleOutcome | null> {
+  let link = await setup.links.findByKey(linkKey)
+  return replayOf(setup, formKey, link?.id ?? null)
+}
+
+async function replayOf(
+  setup: ArticleSetup,
+  formKey: string,
+  linkId: number | null,
+): Promise<CreateArticleOutcome | null> {
+  let existing = await setup.articles.findByFormKey(formKey)
+  if (existing === null || existing.createdAt === null || existing.linkId !== linkId) return null
+  return createdOutcome(setup, existing)
 }
 
 /** The folder, the Doc with the article's name in it, and `_meta.json`, each ID stored at once. */
@@ -220,28 +256,56 @@ async function cleanUp(
   return isComplete
 }
 
-async function cleanUpPending(setup: ArticleSetup, files: ArticleFiles): Promise<void> {
+/**
+ * The attempts whose cleanup failed before. Another form's attempt is cleaned only while its key
+ * is free and taken for the length of it, so its own resend cannot start afresh under the same key
+ * meanwhile and have its new files found by that key and put in the bin.
+ */
+async function cleanUpPending(
+  setup: ArticleSetup,
+  files: ArticleFiles,
+  ownFormKey: string | null,
+): Promise<void> {
   for (let attempt of await setup.articles.pendingCleanups()) {
-    let issue = await setup.issues.findById(attempt.issueId)
-    await cleanUp(setup, files, attempt, issue?.folderIds.articles ?? null)
+    if (attempt.formKey === ownFormKey) await cleanUpMarked(setup, files, attempt)
+    else await lock.ifFree(`article:${attempt.formKey}`, () => cleanUpMarked(setup, files, attempt))
   }
+}
+
+/** Cleans the attempt only while it is still the one that was marked, read again under its key. */
+async function cleanUpMarked(
+  setup: ArticleSetup,
+  files: ArticleFiles,
+  attempt: ArticleRow,
+): Promise<void> {
+  let current = await setup.articles.findByFormKey(attempt.formKey)
+  if (
+    current === null ||
+    current.id !== attempt.id ||
+    !current.startedAt.equals(attempt.startedAt) ||
+    current.createdAt !== null ||
+    current.cleanupAt === null
+  ) {
+    return
+  }
+  let issue = await setup.issues.findById(current.issueId)
+  await cleanUp(setup, files, current, issue?.folderIds.articles ?? null)
 }
 
 /**
  * At startup, before the port opens: no request is running, so every uncommitted attempt is one a
- * crash or a failed cleanup left behind. Without a connected account there is nothing to do yet;
- * the attempts stay and the next send tries again.
+ * crash or a failed cleanup left behind. Each is marked first, so that without a connected
+ * account, or with Drive down, the next send cleans it up.
  */
 export async function cleanUpAbandoned(setup: ArticleSetup): Promise<void> {
   let abandoned = await setup.articles.abandonedAttempts()
   if (abandoned.length === 0) return
+  for (let attempt of abandoned) {
+    if (attempt.cleanupAt === null) await setup.articles.markForCleanup(attempt.id, setup.now())
+  }
   let token = await setup.token()
   if (!token.ok) return
-  let files = setup.files(token.accessToken)
-  for (let attempt of abandoned) {
-    let issue = await setup.issues.findById(attempt.issueId)
-    await cleanUp(setup, files, attempt, issue?.folderIds.articles ?? null)
-  }
+  await cleanUpPending(setup, setup.files(token.accessToken), null)
 }
 
 async function sendWelcomes(setup: ArticleSetup, article: Article, issue: Issue): Promise<void> {
@@ -250,13 +314,13 @@ async function sendWelcomes(setup: ArticleSetup, article: Article, issue: Issue)
     if (author.welcomeSentAt !== null) continue
     let result = await setup.mailer(
       welcomeEmail({
-        articleId: article.id,
         articleName: article.name,
         artworksUrl,
         coauthors: article.authors
           .filter((other) => other.position !== author.position)
           .map((other) => other.name),
         documentUrl: documentUrl(article.docId),
+        formKey: article.formKey,
         issueName: issue.name,
         to: author.email,
       }),

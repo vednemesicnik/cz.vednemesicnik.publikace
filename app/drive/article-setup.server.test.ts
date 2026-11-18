@@ -14,6 +14,7 @@ import {
   cleanUpAbandoned,
   createArticle,
   type NewArticle,
+  replayedArticle,
 } from './article-setup.server.ts'
 import { createFakeDrive, type FakeDrive } from './fake-drive.server.ts'
 import { createDriveFolders } from './folders.server.ts'
@@ -214,6 +215,87 @@ describe('creating an article (20c, 20d)', () => {
       await cleanUpAbandoned(setup)
 
       assert.equal(await setup.articles.findByFormKey('crashed'), null)
+    }))
+
+  it('marks a crash’s attempt at startup without the account, so the next send cleans it', () =>
+    withHarness(async ({ linkKey, setup }) => {
+      let link = await setup.links.findByKey(linkKey)
+      if (link === null) return
+      await setup.articles.startAttempt({
+        at: now(),
+        authors: [TEREZA],
+        formKey: 'crashed',
+        issueId: link.issueId,
+        linkId: link.id,
+        name: 'Článek',
+      })
+
+      await cleanUpAbandoned({
+        ...setup,
+        token: async () => ({ ok: false, reason: 'disconnected' }),
+      })
+      assert.equal((await setup.articles.pendingCleanups()).length, 1)
+
+      assert.equal((await createArticle(setup, article(linkKey))).kind, 'created')
+      assert.equal(await setup.articles.findByFormKey('crashed'), null)
+    }))
+
+  it('cleans up when storing the attempt throws, leaving no row behind', () =>
+    withHarness(async ({ drive, linkKey, setup }) => {
+      let failing: ArticleSetup = {
+        ...setup,
+        articles: {
+          ...setup.articles,
+          commit: async () => {
+            throw new Error('database is locked')
+          },
+        },
+      }
+      let outcome = await createArticle(failing, article(linkKey))
+
+      assert.equal(outcome.kind, 'unavailable')
+      assert.equal(await setup.articles.findByFormKey('form-1'), null)
+      assert.ok(articleFiles(drive).every((file) => file.isTrashed))
+    }))
+
+  it('lets only one of three sends in parallel past the last place under the limit', () =>
+    withHarness(async ({ linkKey, setup }) => {
+      let link = await setup.links.findByKey(linkKey)
+      if (link === null) return
+      for (let index = 0; index < 29; index++) {
+        await setup.articles.startAttempt({
+          at: now(),
+          authors: [TEREZA],
+          formKey: `earlier-${index}`,
+          issueId: link.issueId,
+          linkId: link.id,
+          name: 'Článek',
+        })
+      }
+
+      let outcomes = await Promise.all(
+        ['form-a', 'form-b', 'form-c'].map((formKey) =>
+          createArticle(setup, article(linkKey, { formKey })),
+        ),
+      )
+
+      assert.deepEqual(outcomes.map((outcome) => outcome.kind).sort(), [
+        'created',
+        'limited',
+        'limited',
+      ])
+    }))
+
+  it('answers a resend through the replaced link with its article, and no other link at all', () =>
+    withHarness(async ({ linkKey, setup }) => {
+      assert.equal((await createArticle(setup, article(linkKey))).kind, 'created')
+      let link = await setup.links.findByKey(linkKey)
+      if (link === null) return
+      let renewed = await setup.links.renew(link.issueId, now())
+
+      assert.equal((await replayedArticle(setup, 'form-1', linkKey))?.kind, 'created')
+      assert.equal(await replayedArticle(setup, 'form-1', renewed.key), null)
+      assert.equal((await createArticle(setup, article(renewed.key))).kind, 'unavailable')
     }))
 
   it('says the issue’s Články folder is gone, and creates nothing', () =>

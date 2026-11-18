@@ -36,7 +36,7 @@ type Row = Record<string, unknown>
 const EPOCH = Temporal.Instant.fromEpochMilliseconds(0)
 
 /*
- * 248 is the largest multiple of 62 a byte reaches, so a byte above it is drawn again rather
+ * 248 is the largest multiple of 62 a byte reaches, so a byte at or above it is drawn again rather
  * than folded back in, which would make the first eight characters likelier than the rest.
  */
 const FAIR_LIMIT = 256 - (256 % LINK_KEY_ALPHABET.length)
