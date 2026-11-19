@@ -76,7 +76,9 @@ In order: each check uses what the one before it made.
    - `_meta.json` with `docId`, `articleName`, `issue`, `articleFolderId`, `issueFolderId`,
      `sheetId` (`null`) and `authors`.
 
-   Open the Doc. Its own menu, _✦ Publikace_, appears in the menu bar. From it, run only
+   Open the Doc. Its own menu, _✦ Publikace_, appears in the menu bar. On a fresh copy that
+   can take well over half a minute, so a menu that is not there yet is not a failure. From it,
+   run only
    _Zobrazit metadata článku_. It only reads `_meta.json` beside the Doc, and it lists the article,
    the issue, the folders and the authors, which proves the bound script reads what the app
    wrote. Its first run asks the tester to authorise the copy's script. **Run none of the other
