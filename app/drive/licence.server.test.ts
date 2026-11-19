@@ -89,8 +89,8 @@ describe('the licence preview', () => {
   })
 
   /*
-   * On the real Drive an 800 px thumbnail drawn with only `max-width` and `max-height` filled a
-   * page of its own: the import ignores both, and the licence came out two pages long.
+   * Drive's HTML import ignores `max-width` and `max-height`: with only those, an 800 px
+   * thumbnail fills a page of its own and the licence runs to two pages.
    */
   it('draws the preview with width and height attributes, and no CSS the import ignores', () => {
     let html = licenceHtml(details({ bytes: png(800, 800), mimeType: 'image/png' }))

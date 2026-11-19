@@ -92,7 +92,8 @@ export function fitPreview(size: Size): Size {
 function previewImage(preview: Preview): string {
   let size = imageSize(preview.bytes)
   let fitted = size === null ? null : fitPreview(size)
-  /* Without a size the width alone bounds it; the import keeps the proportions from the image. */
+  /* Without a size only the width is set, so a preview of another format still cannot run wider
+     than the box. */
   let dimensions =
     fitted === null
       ? `width="${PREVIEW_BOX.width}"`

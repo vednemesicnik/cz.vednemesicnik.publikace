@@ -158,18 +158,22 @@ In order: each check uses what the one before it made.
    `signEnvelope()` in `app/mail/mailer.server.ts` signs the Mailer's, under the reply check's
    own secret. Its fields: `sender` is the provider's address, `subjectPrefix` is the prefix
    above, `subjectTag` is the tag without its brackets, and `expectedReply` is `souhlasím`. The
-   answer is `reply_matches` with the thread. Nothing in the app changes: the app does not ask
-   the reply check yet.
+   script that signs it reads the secret from the environment, typed with `read -s`, so it
+   lands on no screen and in no file. The answer is `reply_matches` with the thread. Nothing in
+   the app changes: the app does not ask the reply check yet.
 
 10. **A failed batch and the 24-hour sweep.**
-    - Send a batch of many large artworks and stop the app while it is still sending. Start it
-      again. The licences and temporary Docs that batch made are in the bin, the artworks are
-      back on their page, and nobody got an e-mail.
+    - Send a batch of five artworks or more and stop the app while it is still sending: a
+      licence takes about ten seconds, so twenty seconds in, some exist and nothing is
+      committed. Start it again. The licences and temporary Docs that batch made are in the bin,
+      the artworks are back on their page, and nobody got an e-mail.
     - Upload two artworks and send neither. In Drive, move one of them out of the article folder.
+      Open it by its `drive_file_id`, because the same image uploaded twice gets the same name.
       Stop the app, run
       `UPDATE artworks SET uploaded_at = '2000-01-01T00:00:00.000Z' WHERE batch_id IS NULL AND removed_at IS NULL`,
       and start it: the sweep runs at startup. The one still in the article folder is in the
-      bin. The one that was moved is where it was moved to.
+      bin. The one that was moved is where it was moved to. Both have `removed_at` and leave the
+      page.
 
 ## After the run
 
