@@ -47,14 +47,23 @@ sends to nobody the request does not name:
 
 **`.env`**, edited by the tester:
 
-- [ ] `DATABASE_PATH=./db/round-trip.sqlite`, a database for this run alone, deleted after it;
+- [ ] `ISSUES_FOLDER_ID` and `ARTICLE_TEMPLATE_DOCUMENT_ID` as above, `MAIL_SEND_URL` and
+      `MAIL_SEND_SECRET`, and `DRIVE_TOKEN_KEY` set;
 - [ ] `DRIVE_ACCOUNT_EMAIL` empty (it defaults to `publikace.app@` on `AUTHORIZED_DOMAIN`);
 - [ ] `REGISTRY_SPREADSHEET_ID` empty. The app reads it nowhere yet, and the run must not reach
       the Registr even by mistake.
 
-Then `pnpm app:dev`, sign in at `http://localhost:44100`, and in _Nastavení_ connect the account
-with _Připojit účet_ as `publikace.app@`. Settings shows it connected, and the account banner is
-gone.
+The run's database is not a line in `.env`. It is set on the command line, because Node's
+`--env-file` never overrides a variable that is already set, so the run stays apart from the dev
+database without `.env` changing:
+
+```sh
+env DATABASE_PATH=./db/round-trip.sqlite pnpm app:dev
+```
+
+The server reads `.env` only when it starts, so every change to it means a restart. Sign in at
+`http://localhost:44100`, and in _Nastavení_ connect the account with _Připojit účet_ as
+`publikace.app@`. Settings shows it connected, and the account banner is gone.
 
 ## The run
 
@@ -89,16 +98,28 @@ In order: each check uses what the one before it made.
    `null` they fail before writing. _Nastavit metadata článku_ would rewrite the app's
    `_meta.json`.
 
-3. **A failed step leaves its files in the bin.** Stop the app, set
-   `ARTICLE_TEMPLATE_DOCUMENT_ID` to an ID that does not exist, start it, and send another
-   article. The page refuses it. The article folder that attempt made is in the shared drive's
-   bin, not in `Články`. This is also the check that a Content manager can move a file to the
-   bin. Put the right ID back.
+3. **A failed step leaves its files in the bin.** Start the app with a template ID that does not
+   exist, `env DATABASE_PATH=./db/round-trip.sqlite ARTICLE_TEMPLATE_DOCUMENT_ID=1doesNotExist pnpm app:dev`,
+   and send another article. The page refuses it (`20c`), the log says the Doc was not copied
+   with HTTP 404, and the article has no row. The folder that attempt made is not in `Články`
+   but in the shared drive's own bin: the drive's menu, _Zobrazit koš_, and not the bin in the
+   sidebar, which holds only _Můj disk_. That it got there is the check that a Content manager
+   can move a file to the bin. No e-mail went out. Start the app again without the override.
 
 4. **The welcome e-mail arrives once per author.** Every author of the article in check 2 has
-   one e-mail, _Článek „…“ je ve vydání …_, from `publikace@`. Then send the same form again:
-   go back in the browser to the filled form and send it once more. The page answers as it did
-   the first time, and no second e-mail arrives.
+   one e-mail, _Článek „…“ je ve vydání …_, from `publikace@`. Then send the same form again, the
+   way a retry after a lost answer does. The form is sent by `fetch` and leaves no history
+   entry, so the browser's back button does not bring it back. Replay the request instead, with
+   its one-time key from `SELECT form_key FROM articles`, and the same fields:
+
+   ```sh
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:44100/l/<key>/article \
+     --data-urlencode "formKey=<form_key>" --data-urlencode "intent=create" \
+     --data-urlencode "name=<article>" \
+     --data-urlencode "author-name=<name>" --data-urlencode "author-email=<address>"
+   ```
+
+   The answer is `20d` again, there is still one article, and no second e-mail arrives.
 
 5. **Nothing the old scripts use was touched.** The Registr, every issue's Evidence sheet and the
    folders the scripts use show no change since the run began: check the _Poslední úprava_
@@ -121,8 +142,8 @@ In order: each check uses what the one before it made.
 8. **The consent request arrives once, with every PDF.** The provider's address has one e-mail
    whose subject begins _Žádost o potvrzení souhlasu s užitím obrazových děl_ and ends with a
    `[tag]`. It carries one PDF per artwork. Repeat with as many artworks as the page takes, up to
-   20, to see the attachments under the Mailer's 25 MB. Then send the same form again from the
-   browser's back button: nobody gets a second e-mail.
+   20, to see the attachments under the Mailer's 25 MB. Then replay the send with the same form
+   key, as in check 4: nobody gets a second e-mail.
 
 9. **The reply check finds the reply.** Reply _Souhlasím_ to the request from the provider's
    mailbox. Send `SCRIPT__Mail__Reply_Check` one signed `check` item. Sign it the way
@@ -147,6 +168,6 @@ In order: each check uses what the one before it made.
 - [ ] remove `publikace.app@` from the test shared drive: _Publikace_ is the only shared drive
       it belongs to, because it holds the full `drive` scope;
 - [ ] delete the shared drive `Publikace (test)`, once its bin has been looked at;
-- [ ] delete `./db/round-trip.sqlite` and set `.env` back;
+- [ ] delete `./db/round-trip.sqlite`;
 - [ ] write the results into the issue: each check passed, fixed in a commit, or moved to a new
       issue.
