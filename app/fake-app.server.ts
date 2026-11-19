@@ -68,7 +68,6 @@ function page(body: SafeHtml): Response {
             display: inline-block;
             margin: 0 0.5rem 0.5rem 0;
           }
-          code,
           td {
             font-size: 13px;
           }
@@ -142,10 +141,10 @@ export async function createFakeApp(): Promise<FakeApp> {
     return routes.links.article.href({ key: link.key })
   }
 
-  /** The artworks page of the first article, the seeded one. */
+  /** The artworks page of the oldest article, the seeded one: `listCreated` is newest first. */
   async function artworksPath(): Promise<string> {
     let artworks = await links.artworksLinksOf(issueId)
-    let first = [...(await articles.listCreated(issueId))].reverse()[0]
+    let first = (await articles.listCreated(issueId)).at(-1)
     let link = first === undefined ? undefined : artworks.get(first.id)
     if (link === undefined) throw new Error('The fake article has no link for artworks.')
     return routes.links.artworks.show.href({ key: link.key })
