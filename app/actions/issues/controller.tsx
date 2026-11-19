@@ -48,8 +48,7 @@ import {
   RESEND_FOLDER_GONE_TOAST,
   type SubfolderKind,
 } from '../../domain/article-folders.ts'
-import type { Issue } from '../../domain/issue.ts'
-import { folderUrl } from '../../domain/issue.ts'
+import { folderUrl, type Issue } from '../../domain/issue.ts'
 import {
   absoluteUrl,
   articleLinkPath,

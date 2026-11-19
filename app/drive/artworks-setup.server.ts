@@ -34,10 +34,12 @@ import { createLock } from './one-at-a-time.server.ts'
  * A file is stored on Drive the moment it is chosen, in the article's `Obrazová díla`, tagged with
  * its own upload key, and belongs to the page that uploaded it until a batch takes it; one never
  * sent goes to the bin 24 hours later. A batch's licences and their temporary Docs go to
- * `Licence`. Nothing happens while one of the article's three folders is missing (`12j`). _Odeslat díla_ is all or nothing, as every action but the issue is (`11c`): the batch's
- * row comes first, each licence's IDs are stored the moment Drive returns them, and when a step
- * fails every licence and temporary Doc of the attempt goes to the bin, found by the stored IDs
- * and by the form key on each, and the artworks go back to their page.
+ * `Licence`. Nothing happens while one of the article's three folders is missing (`12j`).
+ *
+ * _Odeslat díla_ is all or nothing, as every action but the issue is (`11c`): the batch's row
+ * comes first, each licence's IDs are stored the moment Drive returns them, and when a step fails
+ * every licence and temporary Doc of the attempt goes to the bin, found by the stored IDs and by
+ * the form key on each, and the artworks go back to their page.
  *
  * The consent request goes after the batch is committed. A batch whose request the Mailer did not
  * confirm stays committed and is _Chyba_ (`01b`): the page and the editors resend it with the same
