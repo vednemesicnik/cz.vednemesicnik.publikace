@@ -183,8 +183,11 @@ export type ArtworkStore = {
   ): Promise<boolean>
   /** _Vrátit_ until the job archives; `false` once it has, or with nothing to take back. */
   undoVerification(id: number): Promise<boolean>
-  /** The cards of _Ke kontrole_, the oldest reply first. */
-  reviewQueue(): Promise<QueuedBatch[]>
+  /**
+   * The cards of _Ke kontrole_, the oldest reply first, and the batch `including` names where it
+   * stands, decided or not: the card just decided keeps its place until the next load (`13b`).
+   */
+  reviewQueue(including?: number): Promise<QueuedBatch[]>
   /** How many cards _Ke kontrole_ has, for the panel. */
   reviewCount(): Promise<number>
 }
@@ -695,9 +698,11 @@ export function createArtworkStore(database: Database): ArtworkStore {
       return (result.affectedRows ?? 0) === 1
     },
 
-    async reviewQueue() {
+    async reviewQueue(including) {
       let result = await database.exec(QUEUE_CANDIDATES)
-      let rows = (result.rows ?? []).filter((row) => isQueued(toBatch(row, [])))
+      let rows = (result.rows ?? []).filter(
+        (row) => Number(row['id']) === including || isQueued(toBatch(row, [])),
+      )
       return listed(database, rows)
     },
 

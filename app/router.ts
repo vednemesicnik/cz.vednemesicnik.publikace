@@ -17,6 +17,7 @@ import createArtworkRepliesController from './actions/api/artwork-replies/contro
 import createDocMenuController from './actions/api/doc-menu/controller.ts'
 import createArtworksController from './actions/links/artworks/controller.tsx'
 import createLinksController from './actions/links/controller.tsx'
+import createReviewController from './actions/review/controller.tsx'
 import createDriveAccountController from './actions/settings/account/controller.tsx'
 import createSettingsController from './actions/settings/controller.tsx'
 import {
@@ -70,6 +71,7 @@ import { serveAssets } from './middleware/assets.server.ts'
 import { loadAuth, signInRedirect } from './middleware/auth.server.ts'
 import { loadDriveAccount } from './middleware/drive-account.server.ts'
 import { loadIssues } from './middleware/issues.server.ts'
+import { loadReviewCount } from './middleware/review-count.server.ts'
 import { publicLinkHeaders, skipWithoutSession } from './middleware/public-link.server.ts'
 import { render } from './middleware/render.tsx'
 import { logRequests } from './middleware/request-log.server.ts'
@@ -95,6 +97,7 @@ export type AppContext = MiddlewareContext<
     ReturnType<typeof loadIssues>,
     ReturnType<typeof loadArticles>,
     ReturnType<typeof loadAuth>,
+    ReturnType<typeof loadReviewCount>,
     ReturnType<typeof takeToasts>,
   ]
 >
@@ -247,7 +250,8 @@ export function createAppRouter(dependencies: AppDependencies) {
      *   - `loadAccess()` before `loadAuth()`, whose ten-minute check asks the access list, and
      *     `loadDriveAccount()` beside it, for the banner every editor screen draws, and
      *     `loadIssues()` beside that,
-     *   - `loadAuth()` before `csrf()`, so a refused form can tell an expired sign-in apart,
+     *   - `loadAuth()` before `csrf()`, so a refused form can tell an expired sign-in apart, and
+     *     `loadReviewCount()` after it, for the number beside _Ke kontrole_ in the panel,
      *   - `takeToasts()` last, so the message is cleared while the session can still be saved.
      *
      * The session, the sign-in, CSRF and the toasts are skipped for a shared link's page and for
@@ -283,6 +287,7 @@ export function createAppRouter(dependencies: AppDependencies) {
         setup: articleSetup,
       }),
       skipWithoutSession(loadAuth()),
+      skipWithoutSession(loadReviewCount(artworksSetup.artworks)),
       skipWithoutSession(
         csrf({
           // Behind a TLS-terminating proxy the request's own URL says `http:`.
@@ -327,6 +332,13 @@ export function createAppRouter(dependencies: AppDependencies) {
       verifyIdentityToken:
         dependencies.verifyJobToken ??
         createIdentityTokenVerifier({ audiences: scriptTokenAudiences(), fetch }),
+    }),
+  )
+  router.map(
+    routes.review,
+    createReviewController(signedInUntil, {
+      artworks: artworksSetup.artworks,
+      runs: createJobRunStore(dependencies.database),
     }),
   )
   router.map(routes.auth, createAuthController(signedInUntil))
