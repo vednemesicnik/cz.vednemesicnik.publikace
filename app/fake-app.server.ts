@@ -17,6 +17,7 @@ import {
   fakeIdentityToken,
   JOB_TOKEN,
   seedAdmin,
+  seedBatch,
   type TestApp,
 } from './test-app.server.ts'
 
@@ -303,6 +304,7 @@ export async function createFakeApp(): Promise<FakeApp> {
       <table>
         ${batchRows}
       </table>
+      <p>${button('/batch', 'Seed a sent batch of two artworks for the first article')}</p>
 
       <h2>Mailer</h2>
       <p>
@@ -445,6 +447,17 @@ export async function createFakeApp(): Promise<FakeApp> {
           }),
         )
         if (answer.status !== 200) return new Response(`The API answered ${answer.status}`)
+        return backToControls()
+      }
+      case '/batch': {
+        /* A batch as the artworks page leaves it once the Mailer took the request, without
+           uploading files by hand. */
+        let first = (await articles.listCreated(issueId)).at(-1)
+        let link =
+          first === undefined ? undefined : (await links.artworksLinksOf(issueId)).get(first.id)
+        if (first === undefined || link === undefined)
+          return new Response('No article', { status: 400 })
+        await seedBatch(app, { articleId: first.id, link }, issueId, { at: now() })
         return backToControls()
       }
       case '/replies': {

@@ -181,7 +181,10 @@ export type ArtworkStore = {
     editor: { displayName: string; email: string },
     at: Temporal.Instant,
   ): Promise<boolean>
-  /** _Vrátit_ until the job archives; `false` once it has, or with nothing to take back. */
+  /**
+   * _Vrátit_ until the job archives (`13b`); `false` once it has or failed to, or with nothing to
+   * take back. Any editor-in-chief may, as any may decide.
+   */
   undoVerification(id: number): Promise<boolean>
   /**
    * The cards of _Ke kontrole_, the oldest reply first, and the batch `including` names where it
@@ -689,11 +692,12 @@ export function createArtworkStore(database: Database): ArtworkStore {
     },
 
     async undoVerification(id) {
+      /* Only in the window `13b` gives it: once the archive failed, the decision stands (`13c`). */
       let result = await database.exec(
         sql`UPDATE artwork_batches SET consent_verified_at = NULL,
-              consent_verified_by_email = NULL, consent_verified_by_name = NULL,
-              archive_failed_at = NULL, archive_error = NULL
-            WHERE id = ${id} AND approved_at IS NULL AND consent_verified_at IS NOT NULL`,
+              consent_verified_by_email = NULL, consent_verified_by_name = NULL
+            WHERE id = ${id} AND approved_at IS NULL AND archive_failed_at IS NULL
+              AND consent_verified_at IS NOT NULL`,
       )
       return (result.affectedRows ?? 0) === 1
     },

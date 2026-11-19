@@ -77,7 +77,9 @@ function cardOf(
   }
   let ids = { id: String(batch.id) }
 
-  if (options.isSettled) {
+  /* The card just decided, while the decision can still be taken back: an archive that failed in
+     between draws the card of `13c` instead. */
+  if (options.isSettled && batch.consentVerifiedAt !== null && batch.archiveFailedAt === null) {
     return {
       ...base,
       callout: null,

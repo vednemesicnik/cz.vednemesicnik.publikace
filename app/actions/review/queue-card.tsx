@@ -77,7 +77,9 @@ export function QueueCard(handle: Handle<{ card: QueueCardView }>) {
             {card.callout.title === null ? null : (
               <p class="vdm-callout__title">{card.callout.title}</p>
             )}
-            <p>{card.callout.text}</p>
+            {/* Inline, as the other Callouts write it: `css()` would lose to the design system's
+                own rules for a paragraph in the body. */}
+            <p style={{ margin: 0 }}>{card.callout.text}</p>
           </Callout>
         )}
         {hasActions ? (

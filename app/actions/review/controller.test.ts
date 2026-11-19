@@ -111,6 +111,7 @@ describe('Ke kontrole', () => {
         /Souhlas zaznamenán\. Pokus o uložení konverzace proběhne kolem \d+:\d\d\./,
       )
       assert.match(settled, /class="vdm-toast__action"[^>]*>Vrátit</)
+      assert.match(settled, /vdm-btn--ghost vdm-btn--sm">Vrátit</)
       assert.doesNotMatch(settled, />Ke kontrole<span/)
 
       let next = await (await browser.get('/review')).text()
@@ -146,6 +147,25 @@ describe('Ke kontrole', () => {
       assert.match(html, /konverzace se neuložila/)
       assert.match(html, /Souhlas platí\. Konverzaci se nepodařilo uložit do složky Licence\./)
       assert.doesNotMatch(html, />Je to souhlas</)
+    } finally {
+      await app.close()
+    }
+  })
+
+  it('keeps a decided consent whose archive failed, even against a Vrátit sent by hand', async () => {
+    let { app, batch, browser, store } = await setup()
+    try {
+      await replyTo(app, batch, 'ok, souhlas')
+      await browser.post(`/review/batches/${batch.id}/consent`, {}, '/review')
+      await replyTo(app, batch, 'ok, souhlas', { archive: { error: 'Drive' } })
+      let html = await (await browser.get('/review')).text()
+      assert.match(html, /konverzace se neuložila/)
+      assert.doesNotMatch(html, /vdm-btn--ghost vdm-btn--sm">Vrátit</)
+
+      await browser.post(`/review/batches/${batch.id}/consent/undo`, {}, '/review')
+      let stored = await store.findBatch(batch.id)
+      assert.equal(stored?.consentVerifiedByEmail, MARIE)
+      assert.notEqual(stored?.archiveFailedAt, null)
     } finally {
       await app.close()
     }
