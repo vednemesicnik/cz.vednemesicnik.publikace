@@ -170,8 +170,10 @@ export default function createDocMenuController(dependencies: DocMenuDependencie
         ? await dependencies.articles.findCreatedByDocId(call.metaDocumentId)
         : null
 
-    /* The right to edit is asked of the Doc the answer is about: a copy's original, since that is
-       the Doc the dialog points to, and an unknown Doc itself. */
+    /* The right to edit is asked of every Doc the call names, before either shapes the answer:
+       the Doc clicked in, and the one its `_meta.json` names when that is another. Asking only
+       about the Doc the answer is about would let a caller who edits one Doc learn whether any
+       other ID is an article. A copy's original is the Doc the dialog then points to. */
     let drive = await dependencies.token()
     if (!drive.ok) return unavailable()
     let permissions = createDocPermissions({
@@ -179,10 +181,19 @@ export default function createDocMenuController(dependencies: DocMenuDependencie
       checkMembership: dependencies.checkMembership,
       fetch: dependencies.fetch,
     })
-    let mayEdit = await permissions.canEdit(
-      article?.docId ?? original?.docId ?? call.documentId,
-      account.email,
-    )
+    let named = [call.documentId]
+    if (call.metaDocumentId !== null && call.metaDocumentId !== call.documentId) {
+      named.push(call.metaDocumentId)
+    }
+    let mayEdit: 'no' | 'unavailable' | 'yes' = 'yes'
+    for (let documentId of named) {
+      let reply = await permissions.canEdit(documentId, account)
+      if (reply === 'no') {
+        mayEdit = 'no'
+        break
+      }
+      if (reply === 'unavailable') mayEdit = 'unavailable'
+    }
     if (mayEdit === 'unavailable') return unavailable()
 
     let target: ProofreadingTarget =

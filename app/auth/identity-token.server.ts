@@ -11,8 +11,9 @@ type JsonWebKey = webcrypto.JsonWebKey
  * expired and Google verified the address. The audience is one of `DOC_MENU_TOKEN_AUDIENCES`, or
  * any when that says `*`: every Doc carries its own copy of the bound script, and a copy may
  * answer to a Cloud project of its own, so production names one of the two on purpose and an
- * empty list refuses every token (#50). With `*`, the Drive check is what refuses a token
- * issued to anything else.
+ * empty list refuses every token (#50). `*` is the weaker choice. The Drive check that follows
+ * asks about the account, not the token, so with `*` an editor's identity token that another
+ * Google client received could be replayed here until it expires, about an hour.
  *
  * Never throws. Google's keys out of reach is `unavailable`, a "don't know" the script answers
  * with its own dialog; every other failure is a refusal, which tells the caller nothing.
@@ -37,7 +38,12 @@ const REFETCH_SECONDS = 60
 /** Every audience, chosen on purpose where the copies of the bound script share none. */
 export type TokenAudiences = readonly string[] | 'any'
 
-export type VerifiedIdentity = { email: string; name: string | null }
+export type VerifiedIdentity = {
+  email: string
+  /** The Workspace that issued the account (`hd`), or `null` for a personal one. */
+  hostedDomain: string | null
+  name: string | null
+}
 
 export type IdentityCheck =
   | { identity: VerifiedIdentity; status: 'verified' }
@@ -177,6 +183,7 @@ export function createIdentityTokenVerifier(options: {
 
     let name =
       typeof payload['name'] === 'string' && payload['name'] !== '' ? payload['name'] : null
-    return { identity: { email: email.toLowerCase(), name }, status: 'verified' }
+    let hostedDomain = typeof payload['hd'] === 'string' ? payload['hd'].toLowerCase() : null
+    return { identity: { email: email.toLowerCase(), hostedDomain, name }, status: 'verified' }
   }
 }

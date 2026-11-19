@@ -17,7 +17,11 @@ import {
 
 const PREVIEW = '/api/v1/doc-menu/proofreading/preview'
 const MARK = '/api/v1/doc-menu/proofreading'
-const JAKUB = { email: 'jakub.novak@vednemesicnik.test', name: 'Jakub Novák' }
+const JAKUB = {
+  email: 'jakub.novak@vednemesicnik.test',
+  hostedDomain: 'vednemesicnik.test',
+  name: 'Jakub Novák',
+}
 const KOREKTORI = 'korektori@vednemesicnik.test'
 
 async function setup(options: { isShared?: boolean } = {}) {
@@ -123,10 +127,11 @@ describe('the Doc menu’s Označit probíhající korekturu', () => {
     }
   })
 
-  it('sends a copy to its original, checking the right to edit the original', async () => {
+  it('sends a copy to its original, checking the right to edit both', async () => {
     let { app, article } = await setup()
     try {
       app.drive.seedDoc('d-copy', 'Kopie z Volební kampaň na sítích', article.folderId)
+      app.drive.share('d-copy', { emailAddress: KOREKTORI, role: 'writer', type: 'group' })
       let dialog = await dialogOf(
         await call(app, PREVIEW, { documentId: 'd-copy', metaDocumentId: article.docId }),
       )
@@ -218,6 +223,57 @@ describe('the Doc menu’s Označit probíhající korekturu', () => {
 
       let eva = { email: 'eva.mala@external.test', name: 'Eva Malá' }
       assert.equal((await call(app, PREVIEW, body, fakeIdentityToken(eva))).status, 200)
+    } finally {
+      await app.close()
+    }
+  })
+
+  it('asks about both Docs a call names, so editing one tells nothing about another ID', async () => {
+    let { app, article } = await setup({ isShared: false })
+    try {
+      app.drive.seedDoc('d-mine', 'Můj dokument', 'f-somewhere')
+      app.drive.share('d-mine', { emailAddress: JAKUB.email, role: 'writer', type: 'user' })
+
+      let probingArticle = await dialogOf(
+        await call(app, PREVIEW, { documentId: 'd-mine', metaDocumentId: article.docId }),
+      )
+      let probingNothing = await dialogOf(
+        await call(app, PREVIEW, { documentId: 'd-mine', metaDocumentId: 'd-made-up' }),
+      )
+      assert.equal(probingArticle.heading, 'Publikace váš účet nepřijala')
+      assert.equal(probingNothing.heading, 'Publikace váš účet nepřijala')
+    } finally {
+      await app.close()
+    }
+  })
+})
+
+describe('two proofreaders marking the same article at once', () => {
+  it('keeps the first record and tells the second who it is', async () => {
+    let { app, article } = await setup()
+    try {
+      /* Eva's mark lands between the check and Jakub's write, as two clicks a moment apart can:
+         the trigger writes hers first and drops his. */
+      await app.database.exec(sql`
+        CREATE TEMP TRIGGER eva_first BEFORE UPDATE OF proofread_at ON articles
+        WHEN NEW.proofread_by_email = 'jakub.novak@vednemesicnik.test'
+        BEGIN
+          UPDATE articles
+          SET proofread_at = '2026-11-19T09:00:00.000Z',
+              proofread_by_email = 'eva.mala@vednemesicnik.test',
+              proofread_by_name = 'Eva Malá'
+          WHERE id = NEW.id AND proofread_at IS NULL;
+          SELECT RAISE(IGNORE);
+        END`)
+
+      let dialog = await dialogOf(
+        await call(app, MARK, { documentId: article.docId, metaDocumentId: article.docId }),
+      )
+      assert.equal(dialog.heading, 'Korektura už je označená')
+      assert.ok(dialog.lines[0]?.text.endsWith('· Eva Malá'))
+      let record = (await createArticleStore(app.database).findById(article.articleId))
+        ?.proofreading
+      assert.equal(record?.email, 'eva.mala@vednemesicnik.test')
     } finally {
       await app.close()
     }

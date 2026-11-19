@@ -4,7 +4,8 @@ import { describe, it } from 'remix/test'
 import type { MembershipAnswer, MembershipCheck } from '../auth/group-membership.server.ts'
 import { createDocPermissions } from './doc-permissions.server.ts'
 
-const JAKUB = 'jakub.novak@vednemesicnik.test'
+const JAKUB_ADDRESS = 'jakub.novak@vednemesicnik.test'
+const JAKUB = { email: JAKUB_ADDRESS, hostedDomain: 'vednemesicnik.test' }
 
 /** Drive answering the permission list with `pages`, one per request, recording the URLs. */
 function listing(...pages: unknown[]) {
@@ -51,11 +52,27 @@ describe('whether an address may edit a Doc', () => {
       'yes',
     )
     assert.equal(await answer({ domain: 'external.test', role: 'writer', type: 'domain' }), 'no')
+    /* A personal Google account can carry an address on the domain; Drive's grant is the
+       Workspace's, so only the token's `hd` counts. */
+    let personal = await permissions(
+      listing({ permissions: [{ domain: 'vednemesicnik.test', role: 'writer', type: 'domain' }] })
+        .fetch,
+    ).canEdit('doc-1', { email: JAKUB_ADDRESS, hostedDomain: null })
+    assert.equal(personal, 'no')
     assert.equal(await answer({ role: 'writer', type: 'anyone' }), 'yes')
-    assert.equal(await answer({ emailAddress: JAKUB, role: 'fileOrganizer', type: 'user' }), 'yes')
-    assert.equal(await answer({ emailAddress: JAKUB, role: 'organizer', type: 'user' }), 'yes')
-    assert.equal(await answer({ emailAddress: JAKUB, role: 'commenter', type: 'user' }), 'no')
-    assert.equal(await answer({ emailAddress: JAKUB, role: 'reader', type: 'user' }), 'no')
+    assert.equal(
+      await answer({ emailAddress: JAKUB_ADDRESS, role: 'fileOrganizer', type: 'user' }),
+      'yes',
+    )
+    assert.equal(
+      await answer({ emailAddress: JAKUB_ADDRESS, role: 'organizer', type: 'user' }),
+      'yes',
+    )
+    assert.equal(
+      await answer({ emailAddress: JAKUB_ADDRESS, role: 'commenter', type: 'user' }),
+      'no',
+    )
+    assert.equal(await answer({ emailAddress: JAKUB_ADDRESS, role: 'reader', type: 'user' }), 'no')
   })
 
   it('asks the membership service about an editing group, and a group it cannot answer for is a "don’t know"', async () => {

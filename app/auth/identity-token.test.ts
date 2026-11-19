@@ -31,6 +31,7 @@ function token(
     email: 'Jakub.Novak@vednemesicnik.test',
     email_verified: true,
     exp: NOW + 600,
+    hd: 'Vednemesicnik.test',
     iat: NOW - 10,
     iss: 'https://accounts.google.com',
     name: 'Jakub Novák',
@@ -65,15 +66,19 @@ describe('the identity token of a click in the Doc menu', () => {
   it('vouches for the address, lower-cased, and the name', async () => {
     let check = await verifier(certs(jwk('k1')).fetch)(token())
     assert.deepEqual(check, {
-      identity: { email: 'jakub.novak@vednemesicnik.test', name: 'Jakub Novák' },
+      identity: {
+        email: 'jakub.novak@vednemesicnik.test',
+        hostedDomain: 'vednemesicnik.test',
+        name: 'Jakub Novák',
+      },
       status: 'verified',
     })
   })
 
   it('takes a token without a name, which a script without the profile scope sends', async () => {
-    let check = await verifier(certs(jwk('k1')).fetch)(token({ name: undefined }))
+    let check = await verifier(certs(jwk('k1')).fetch)(token({ hd: undefined, name: undefined }))
     assert.deepEqual(check, {
-      identity: { email: 'jakub.novak@vednemesicnik.test', name: null },
+      identity: { email: 'jakub.novak@vednemesicnik.test', hostedDomain: null, name: null },
       status: 'verified',
     })
   })

@@ -1,4 +1,5 @@
 import type { MembershipCheck } from '../auth/group-membership.server.ts'
+import type { VerifiedIdentity } from '../auth/identity-token.server.ts'
 import { normalizeEmail } from '../domain/access.ts'
 import { createDriveCall, describe, FILES_ENDPOINT, readJson } from './http.server.ts'
 import { logDriveFailure } from './log.server.ts'
@@ -16,7 +17,9 @@ import { logDriveFailure } from './log.server.ts'
 
 export type EditAnswer = 'no' | 'unavailable' | 'yes'
 
-export type DocPermissions = { canEdit(fileId: string, email: string): Promise<EditAnswer> }
+export type Editor = Pick<VerifiedIdentity, 'email' | 'hostedDomain'>
+
+export type DocPermissions = { canEdit(fileId: string, editor: Editor): Promise<EditAnswer> }
 
 const EDITING_ROLES = new Set(['fileOrganizer', 'organizer', 'owner', 'writer'])
 
@@ -72,9 +75,8 @@ export function createDocPermissions(options: {
   }
 
   return {
-    async canEdit(fileId, email) {
-      let address = normalizeEmail(email)
-      let domain = address.slice(address.lastIndexOf('@') + 1)
+    async canEdit(fileId, editor) {
+      let address = normalizeEmail(editor.email)
       let grants = await grantsOf(fileId)
       if (grants === 'no' || grants === 'unavailable') return grants
 
@@ -82,7 +84,9 @@ export function createDocPermissions(options: {
       let isGranted = editing.some(
         (grant) =>
           grant.type === 'anyone' ||
-          (grant.type === 'domain' && grant.domain === domain) ||
+          (grant.type === 'domain' &&
+            editor.hostedDomain !== null &&
+            grant.domain === editor.hostedDomain) ||
           (grant.type === 'user' && grant.email === address),
       )
       if (isGranted) return 'yes'

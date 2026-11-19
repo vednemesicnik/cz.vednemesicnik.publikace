@@ -31,8 +31,11 @@ export const UNREACHABLE_IDENTITY_TOKEN = 'fake-identity-unreachable'
  * A token the suite's verifier vouches for, as Google's would be for the account that clicked in
  * the article Doc's menu. Any other string is refused.
  */
-export function fakeIdentityToken(identity: VerifiedIdentity): string {
-  return `${FAKE_IDENTITY_PREFIX}${Buffer.from(JSON.stringify(identity)).toString('base64url')}`
+export function fakeIdentityToken(
+  identity: Omit<VerifiedIdentity, 'hostedDomain'> & { hostedDomain?: string | null },
+): string {
+  let full: VerifiedIdentity = { hostedDomain: null, ...identity }
+  return `${FAKE_IDENTITY_PREFIX}${Buffer.from(JSON.stringify(full)).toString('base64url')}`
 }
 
 const fakeIdentityVerifier: IdentityTokenVerifier = async (token) => {

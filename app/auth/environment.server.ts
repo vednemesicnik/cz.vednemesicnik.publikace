@@ -171,8 +171,8 @@ export function publicMailPerDay(fallback: number): number {
 /**
  * The audiences an identity token from the article Doc's menu may carry, comma-separated, or `*`
  * for any. Production names one of the two on purpose and does not start without it: every Doc
- * carries its own copy of the bound script, and when those copies share no Cloud project, `*`
- * leaves the Drive check on who may edit the Doc to refuse a token issued to anything else (#50).
+ * carries its own copy of the bound script, and when those copies share no Cloud project, only
+ * `*` lets them in. What `*` leaves open is said in `identity-token.server.ts` (#50).
  * Outside production an empty value is `*`, so the fake app and the suite need nothing.
  */
 export function docMenuTokenAudiences(): TokenAudiences {

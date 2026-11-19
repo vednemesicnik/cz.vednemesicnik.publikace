@@ -45,10 +45,10 @@ export type ArticleRow = {
   startedAt: Temporal.Instant
 }
 
-/** A committed article: its files exist. */
 /** Who marked the article as in proofreading in its Doc, and when (`01a`). Set once, for good. */
 export type Proofreading = { at: Temporal.Instant; email: string; name: string | null }
 
+/** A committed article: its files exist. */
 export type Article = ArticleRow & { createdAt: Temporal.Instant; docId: string; folderId: string }
 
 export type NewAttempt = {
