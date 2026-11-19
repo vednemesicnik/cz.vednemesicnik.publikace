@@ -26,10 +26,10 @@ const REPLY: ReportedReply = {
 }
 
 describe('decideReport', () => {
-  it('changes nothing on a failed check, or on a batch already approved', () => {
+  it('only notes a failed check, and changes nothing on a batch already approved', () => {
     assert.deepEqual(decideReport(WAITING, { state: 'failed' }, AT), {
       answer: 'accepted',
-      patch: {},
+      patch: { checkedAt: AT },
     })
     let approved = { ...WAITING, approvedAt: AT }
     assert.deepEqual(
@@ -105,5 +105,34 @@ describe('decideReport', () => {
     assert.equal(decideReport(WAITING, report, AT).answer, 'superseded')
     let verified = { ...WAITING, consentVerifiedAt: AT, replyMessageId: 'm-2' }
     assert.deepEqual(decideReport(verified, report, AT).patch.approved, { at: AT, fileId: 'pdf-1' })
+  })
+
+  it('drops a decision when a newer reply arrives, and archives nothing on its strength', () => {
+    let verified = { ...WAITING, consentVerifiedAt: AT, replyMessageId: 'm-1' }
+    let decision = decideReport(
+      verified,
+      {
+        archive: { fileId: 'pdf-1' },
+        reply: { ...REPLY, text: 'Ne, beru zpět.' },
+        state: 'other_reply',
+      },
+      AT,
+    )
+    assert.equal(decision.answer, 'superseded')
+    assert.equal(decision.patch.isDecisionReset, true)
+    assert.equal(decision.patch.approved, undefined)
+  })
+
+  it('lets a newer reply out of a failed archive, back to Ke kontrole', () => {
+    let failed = { ...WAITING, archiveFailedAt: AT, isExactConsent: true, replyMessageId: 'm-1' }
+    let decision = decideReport(failed, { archive: null, reply: REPLY, state: 'other_reply' }, AT)
+    assert.equal(decision.patch.isDecisionReset, true)
+    assert.equal(decision.patch.archiveFailed, undefined)
+  })
+
+  it('keeps the decision for the same reply read again', () => {
+    let verified = { ...WAITING, consentVerifiedAt: AT, replyMessageId: REPLY.messageId }
+    let decision = decideReport(verified, { archive: null, reply: REPLY, state: 'other_reply' }, AT)
+    assert.equal(decision.patch.isDecisionReset, undefined)
   })
 })

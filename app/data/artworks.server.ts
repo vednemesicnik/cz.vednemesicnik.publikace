@@ -175,9 +175,13 @@ export type ArtworkStore = {
     report: BatchReport,
     at: Temporal.Instant,
   ): Promise<ReportAnswer>
-  /** _Je to souhlas_ on a reply in _Ke kontrole_; `false` when the batch is not there any more. */
+  /**
+   * _Je to souhlas_ on the reply the card showed, `replyMessageId`; `false` when the batch is not
+   * in _Ke kontrole_ any more, its issue was closed, or a newer reply arrived meanwhile.
+   */
   verifyConsent(
     id: number,
+    replyMessageId: string,
     editor: { displayName: string; email: string },
     at: Temporal.Instant,
   ): Promise<boolean>
@@ -295,8 +299,16 @@ const QUEUE_CANDIDATES = sql`SELECT b.*, ar.name AS article_name, i.name AS issu
     AND (b.reply_message_id IS NOT NULL OR b.archive_failed_at IS NOT NULL)
   ORDER BY coalesce(b.reply_received_at, b.archive_failed_at), b.id`
 
-/** A report's patch, written as one statement so a batch never shows half of it. */
+/** A report's patch. The caller's transaction keeps a batch from ever showing half of it. */
 async function applyPatch(db: Database, id: number, patch: BatchPatch): Promise<void> {
+  if (patch.isDecisionReset === true) {
+    await db.exec(
+      sql`UPDATE artwork_batches SET consent_verified_at = NULL,
+            consent_verified_by_email = NULL, consent_verified_by_name = NULL,
+            archive_failed_at = NULL, archive_error = NULL
+          WHERE id = ${id}`,
+    )
+  }
   if (patch.reply !== undefined) {
     let reply = patch.reply
     await db.exec(
@@ -671,16 +683,22 @@ export function createArtworkStore(database: Database): ArtworkStore {
         if (batch === null || batch.claimKey !== runKey) return 'unknown'
         let decision = decideReport(batch, report, at)
         await applyPatch(db, batchId, decision.patch)
+        /* Reported, so the next run may take it; the key stays for a repeat of this report. */
+        await db.exec(sql`UPDATE artwork_batches SET claimed_at = NULL WHERE id = ${batchId}`)
         return decision.answer
       })
     },
 
-    async verifyConsent(id, editor, at) {
+    async verifyConsent(id, replyMessageId, editor, at) {
       return database.transaction(async (db) => {
         let batch = await batchById(db, id)
         if (batch === null || batch.createdAt === null || batchState(batch) !== 'review') {
           return false
         }
+        /* The reply the editor read, not one that arrived after the page was drawn. */
+        if (batch.replyMessageId !== replyMessageId) return false
+        let issue = await db.exec(sql`SELECT closed_at FROM issues WHERE id = ${batch.issueId}`)
+        if (issue.rows?.[0]?.['closed_at'] !== null) return false
         await db.exec(
           sql`UPDATE artwork_batches SET consent_verified_at = ${stamp(at)},
                 consent_verified_by_email = ${editor.email},

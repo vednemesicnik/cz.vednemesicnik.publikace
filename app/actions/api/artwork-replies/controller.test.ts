@@ -185,6 +185,7 @@ describe('the reply check’s API', () => {
       ])
       await store.verifyConsent(
         batch.id,
+        'm-1',
         { displayName: 'Marie Horáková', email: 'marie@vednemesicnik.test' },
         Temporal.Now.instant(),
       )

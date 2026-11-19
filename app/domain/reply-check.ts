@@ -46,6 +46,8 @@ export type BatchPatch = {
   approved?: { at: Temporal.Instant; fileId: string }
   archiveFailed?: { at: Temporal.Instant; error: string }
   checkedAt?: Temporal.Instant
+  /** A newer reply: the decision and the failed archive were about the one before it. */
+  isDecisionReset?: true
   reply?: ReportedReply & { isExactConsent: boolean }
 }
 
@@ -62,6 +64,10 @@ export const NO_CONVERSATION_ERROR =
 /**
  * Decides what one report does, on the batch as it stands now, not as it was when the job claimed
  * it: a _Vrátit_ that came in between wins over the archive.
+ *
+ * A reply with a message the batch has not seen goes through _Ke kontrole_ first (`13a`): a
+ * _Je to souhlas_ and a failed archive were about the reply before it, so both are dropped, and a
+ * retraction is never archived on the strength of an older decision.
  */
 export function decideReport(
   batch: BatchStatus,
@@ -69,7 +75,8 @@ export function decideReport(
   at: Temporal.Instant,
 ): ReportDecision {
   if (batch.approvedAt !== null) return { answer: 'accepted', patch: {} }
-  if (report.state === 'failed') return { answer: 'accepted', patch: {} }
+  /* Asked about, so it waits its turn behind the batches nobody asked about yet. */
+  if (report.state === 'failed') return { answer: 'accepted', patch: { checkedAt: at } }
   if (report.state === 'no_reply') {
     if (batch.consentVerifiedAt === null) return { answer: 'accepted', patch: { checkedAt: at } }
     return {
@@ -79,9 +86,12 @@ export function decideReport(
   }
 
   let isExactConsent = report.state === 'reply_matches'
+  let isNewReply = batch.replyMessageId !== null && batch.replyMessageId !== report.reply.messageId
   let patch: BatchPatch = { checkedAt: at, reply: { ...report.reply, isExactConsent } }
+  if (isNewReply) patch.isDecisionReset = true
   let isArchivable = mayArchive({
     ...batch,
+    consentVerifiedAt: isNewReply ? null : batch.consentVerifiedAt,
     isExactConsent,
     replyMessageId: report.reply.messageId,
   })

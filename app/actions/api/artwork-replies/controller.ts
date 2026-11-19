@@ -176,7 +176,8 @@ export default function createArtworkRepliesController(dependencies: ArtworkRepl
         let body = await bodyOf(context.request)
         let runKey = body?.['runKey']
         let outcome = body?.['outcome']
-        let error = body?.['error']
+        /* An empty text says nothing, as no text does. */
+        let error = body?.['error'] === '' ? null : body?.['error']
         let results = body?.['results']
         if (
           !isText(runKey, MAX_ID_LENGTH) ||
