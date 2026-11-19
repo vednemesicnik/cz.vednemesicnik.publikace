@@ -29,10 +29,16 @@ Nothing here is real data in the repository: the IDs, the URLs and the testers' 
 
 - [ ] `publikace.app@` is a member with the role **Content manager**, not Manager, because that
       is its role on _Publikace_ and the cleanup's bin is what is being tried;
-- [ ] a folder in it holds the issues, and its ID is `ISSUES_FOLDER_ID`;
-- [ ] a copy of the article template, made with _Vytvořit kopii_ in Drive so that it carries its
-      bound script, is in that drive. Its body still contains `{{NAZEV_CLANKU}}`, and its ID
-      is `ARTICLE_TEMPLATE_DOCUMENT_ID`.
+- [ ] a folder in it holds the issues, and its ID is `ISSUES_FOLDER_ID`.
+
+**The article template**, which is not on the shared drive. On a shared drive every member who can
+write may change or bin it, its bound script included. It lives in `publikace.app@`'s own
+_Můj disk → Šablony_, where only that account edits it and the app copies it as its owner:
+
+- [ ] a copy of the template, made as `publikace.app@` with _Vytvořit kopii_ in Drive so that it
+      carries its bound script. Drive says so on the copy page. Its body still contains
+      `{{NAZEV_CLANKU}}`, its menu bar shows _✦ Publikace_, and its ID is
+      `ARTICLE_TEMPLATE_DOCUMENT_ID`.
 
 **The Mailer of `publikace@`** (`SCRIPT__Mail__Send`), its existing deployment and not a new
 one. `OWN_SECRET` belongs to the project, so a second deployment would share it and keep
@@ -84,7 +90,7 @@ In order: each check uses what the one before it made.
 2. **An article makes its folder, its Doc and `_meta.json`.** Open the newsroom's link from the
    issue's page and send the form with one or two authors on testers' addresses. In
    `Články` there is a folder named after the article holding:
-   - the Doc, a copy of the test template with the article's name where `{{NAZEV_CLANKU}}` was;
+   - the Doc, a copy of the template with the article's name where `{{NAZEV_CLANKU}}` was;
    - `_meta.json` with `docId`, `articleName`, `issue`, `articleFolderId`, `issueFolderId`,
      `sheetId` (`null`) and `authors`.
 
