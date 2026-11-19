@@ -109,8 +109,10 @@ In order: each check uses what the one before it made.
    and send another article. The page refuses it (`20c`), the log says the Doc was not copied
    with HTTP 404, and the article has no row. The folder that attempt made is not in `Články`
    but in the shared drive's own bin: the drive's menu, _Zobrazit koš_, and not the bin in the
-   sidebar, which holds only _Můj disk_. That it got there is the check that a Content manager
-   can move a file to the bin. No e-mail went out. Start the app again without the override.
+   sidebar, which holds only _Můj disk_. That bin loads its list as it scrolls, so a file missing
+   from it is best looked up by its ID from the database, `drive.google.com/file/d/<id>/view`,
+   whose page says _Soubor je v koši_. That it got there is the check that a Content manager can
+   move a file to the bin. No e-mail went out. Start the app again without the override.
 
 4. **The welcome e-mail arrives once per author.** Every author of the article in check 2 has
    one e-mail, _Článek „…“ je ve vydání …_, from `publikace@`. Then send the same form again, the
