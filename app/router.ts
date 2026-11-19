@@ -13,6 +13,7 @@ import createAuthController from './actions/auth/controller.tsx'
 import createGoogleController from './actions/auth/google/controller.tsx'
 import createHomeController from './actions/controller.tsx'
 import createIssuesController from './actions/issues/controller.tsx'
+import createArtworkRepliesController from './actions/api/artwork-replies/controller.ts'
 import createDocMenuController from './actions/api/doc-menu/controller.ts'
 import createArtworksController from './actions/links/artworks/controller.tsx'
 import createLinksController from './actions/links/controller.tsx'
@@ -31,6 +32,8 @@ import {
   issuesFolderId,
   mailSendEndpoint,
   publicMailPerDay,
+  scriptJobAccount,
+  scriptTokenAudiences,
 } from './auth/environment.server.ts'
 import {
   createMembershipCheck,
@@ -47,6 +50,7 @@ import { createArticleStore } from './data/articles.server.ts'
 import { createArtworkStore } from './data/artworks.server.ts'
 import { createDriveAccountStore } from './data/drive-account.server.ts'
 import { createIssueStore } from './data/issues.server.ts'
+import { createJobRunStore } from './data/job-runs.server.ts'
 import { createLinkStore } from './data/links.server.ts'
 import { createPublicMailLog } from './data/public-mail.server.ts'
 import { createSqliteSessionStorage } from './data/session-storage.server.ts'
@@ -123,8 +127,12 @@ export type AppDependencies = {
   mailPerDay?: number
   /** The Doc every article is copied from. Defaults to `ARTICLE_TEMPLATE_DOCUMENT_ID`. */
   templateId?: string
+  /** The account the background jobs run as. Defaults to `SCRIPT_JOB_ACCOUNT`. */
+  jobAccount?: string
   /** Checks a click from the article Doc's menu. Defaults to Google's keys on `fetch`. */
   verifyIdentityToken?: IdentityTokenVerifier
+  /** Checks a call from a background job. Defaults to Google's keys on `fetch`. */
+  verifyJobToken?: IdentityTokenVerifier
 }
 
 function defaultMailer(): Mailer {
@@ -307,6 +315,18 @@ export function createAppRouter(dependencies: AppDependencies) {
       verifyIdentityToken:
         dependencies.verifyIdentityToken ??
         createIdentityTokenVerifier({ audiences: docMenuTokenAudiences(), fetch }),
+    }),
+  )
+  router.map(
+    routes.api.artworkReplies,
+    createArtworkRepliesController({
+      artworks: artworksSetup.artworks,
+      jobAccount: (dependencies.jobAccount ?? scriptJobAccount()).toLowerCase(),
+      now,
+      runs: createJobRunStore(dependencies.database),
+      verifyIdentityToken:
+        dependencies.verifyJobToken ??
+        createIdentityTokenVerifier({ audiences: scriptTokenAudiences(), fetch }),
     }),
   )
   router.map(routes.auth, createAuthController(signedInUntil))
