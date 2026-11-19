@@ -76,9 +76,13 @@ In order: each check uses what the one before it made.
    - `_meta.json` with `docId`, `articleName`, `issue`, `articleFolderId`, `issueFolderId`,
      `sheetId` (`null`) and `authors`.
 
-   Open the Doc. Its own menu appears in the menu bar. **Open the menu and run nothing from it.**
-   Its items write to an issue's Evidence sheet, and with `sheetId` `null` they have none to
-   write to.
+   Open the Doc. Its own menu, _✦ Publikace_, appears in the menu bar. From it, run only
+   _Zobrazit metadata článku_. It only reads `_meta.json` beside the Doc, and it lists the article,
+   the issue, the folders and the authors, which proves the bound script reads what the app
+   wrote. Its first run asks the tester to authorise the copy's script. **Run none of the other
+   items.** The two _Označit…_ items write to an issue's Evidence sheet, and with `sheetId`
+   `null` they fail before writing. _Nastavit metadata článku_ would rewrite the app's
+   `_meta.json`.
 
 3. **A failed step leaves its files in the bin.** Stop the app, set
    `ARTICLE_TEMPLATE_DOCUMENT_ID` to an ID that does not exist, start it, and send another
