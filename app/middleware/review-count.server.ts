@@ -1,3 +1,4 @@
+import { Auth } from 'remix/middleware/auth'
 import { createContextKey, type Middleware } from 'remix/router'
 
 import type { ArtworkStore } from '../data/artworks.server.ts'
@@ -14,8 +15,12 @@ export function loadReviewCount(artworks: ArtworkStore): Middleware<{
   property: 'reviewCount'
   value: number
 }> {
+  /* Only for a signed-in editor: the sign-in and the pages behind a link draw no panel. A form
+     refused with its page drawn again keeps its count. */
   return async (context, next) => {
-    context.set(ReviewCount, await artworks.reviewCount())
+    if (context.get(Auth)?.ok === true) {
+      context.set(ReviewCount, await artworks.reviewCount())
+    }
     return next()
   }
 }

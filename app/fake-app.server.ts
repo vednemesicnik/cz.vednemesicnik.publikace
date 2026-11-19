@@ -463,6 +463,9 @@ export async function createFakeApp(): Promise<FakeApp> {
       case '/replies': {
         let id = Number(fileId)
         let kind = form?.get('kind') ?? null
+        if (kind !== 'other' && kind !== 'exact' && kind !== 'exact-fail' && kind !== 'archive') {
+          return new Response('Unknown kind', { status: 400 })
+        }
         let batch = await batchStore.findBatch(id)
         if (batch === null) return new Response('No batch', { status: 400 })
         let answer = await runReplyCheck(batch, kind)

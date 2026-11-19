@@ -35,13 +35,6 @@ import { driveView } from '../issues/render.tsx'
 import type { QueueCardView } from './queue-card.tsx'
 import { ReviewPage } from './review-page.tsx'
 
-/**
- * `/review`, _Ke kontrole_ (`13a`–`13c`): every reply the reply check did not take for a consent,
- * from every issue that is not closed, the oldest first, and every consent whose archive failed.
- * _Je to souhlas_ records the decision at once and the job archives it on its next run; _Vrátit_
- * takes it back until then.
- */
-
 export type ReviewDependencies = {
   artworks: ArtworkStore
   runs: JobRunStore
@@ -58,6 +51,13 @@ function takeSettled(session: Session | undefined): number | null {
   if (value === undefined) return null
   session?.unset(SETTLED_SESSION_KEY)
   return typeof value === 'number' ? value : null
+}
+
+/** The queue at the card, so a page drawn without script does not jump to the top. */
+function cardHref(id: number): string {
+  return Number.isSafeInteger(id)
+    ? `${routes.review.index.href()}#reply-${id}`
+    : routes.review.index.href()
 }
 
 /** The issue's detail with its artworks filtered to _Ke kontrole_ (`12a`). */
@@ -84,6 +84,7 @@ function cardOf(
       ...base,
       callout: null,
       consentAction: null,
+      consentReplyId: null,
       isSettled: true,
       menu: null,
       meta: settledLine(batch.providerName, replyExcerpt(batch.replyText ?? '')),
@@ -104,6 +105,7 @@ function cardOf(
         tone: 'error',
       },
       consentAction: null,
+      consentReplyId: null,
       isSettled: false,
       menu: null,
       meta:
@@ -132,6 +134,7 @@ function cardOf(
         ? null
         : { text: discardedBatchText(batch.discardedAt, today), title: null, tone: 'info' },
     consentAction: routes.review.verify.href(ids),
+    consentReplyId: batch.replyMessageId,
     isSettled: false,
     /* A discarded batch has nothing to show in the issue and no request to send again. */
     menu: isDiscarded
@@ -163,6 +166,12 @@ function cardOf(
   }
 }
 
+/**
+ * `/review`, _Ke kontrole_ (`13a`–`13c`): every reply the reply check did not take for a consent,
+ * from every issue that is not closed, the oldest first, and every consent whose archive failed.
+ * _Je to souhlas_ records the decision at once and the job archives it on its next run; _Vrátit_
+ * takes it back until then. Both answer back at the card, so the queue does not move (`13b`).
+ */
 export default function createReviewController(
   signedInUntil: SignedInUntilCookie,
   dependencies: ReviewDependencies,
@@ -204,9 +213,11 @@ export default function createReviewController(
 
       async verify(context) {
         let id = Number(context.params.id)
+        let reply = (context.get(FormData) as FormData).get('reply')
         let isRecorded =
           Number.isSafeInteger(id) &&
-          (await dependencies.artworks.verifyConsent(id, context.auth.identity, now()))
+          typeof reply === 'string' &&
+          (await dependencies.artworks.verifyConsent(id, reply, context.auth.identity, now()))
         if (isRecorded) {
           context.get(Session)?.flash(SETTLED_SESSION_KEY, id)
           flashToast(context, verifiedToast(await healthNow()), 'neutral', {
@@ -214,13 +225,13 @@ export default function createReviewController(
             label: UNDO_LABEL,
           })
         }
-        return redirect(routes.review.index.href(), 303)
+        return redirect(cardHref(id), 303)
       },
 
       async undo(context) {
         let id = Number(context.params.id)
         if (Number.isSafeInteger(id)) await dependencies.artworks.undoVerification(id)
-        return redirect(routes.review.index.href(), 303)
+        return redirect(cardHref(id), 303)
       },
     },
   })

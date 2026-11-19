@@ -89,8 +89,10 @@ export function Toasts(handle: Handle<ToastsProps>) {
           ))}
         </div>
         <div mix={regionStyle} role="status">
+          {/* A toast with an action stays until the next load: the action must not leave before a
+              keyboard reaches it. */}
           {confirmations.map((toast) => (
-            <div class="vdm-toast" mix={leavingStyle}>
+            <div class="vdm-toast" mix={toast.action === undefined ? leavingStyle : undefined}>
               <span class="vdm-toast__text">{toast.message}</span>
               {toast.action === undefined ? null : (
                 <form action={toast.action.action} method="post" mix={actionFormStyle}>

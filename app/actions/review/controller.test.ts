@@ -47,6 +47,51 @@ async function replyTo(
   )
 }
 
+/** A later run reading the same reply again, with what it did about the archive. */
+async function reportAgain(
+  app: TestApp,
+  batch: BatchRow,
+  messageId: string,
+  archive: ReportedArchive,
+) {
+  let store = createArtworkStore(app.database)
+  let runKey = crypto.randomUUID()
+  let at = Temporal.Now.instant()
+  await createJobRunStore(app.database).start({
+    at,
+    intervalMinutes: 30,
+    job: REPLY_CHECK_JOB,
+    runKey,
+  })
+  await app.database.exec(sql`UPDATE artwork_batches SET claimed_at = NULL`)
+  await store.claimForReplyCheck(runKey, at)
+  return store.recordReport(
+    runKey,
+    batch.id,
+    {
+      archive,
+      reply: { messageId, receivedAt: RECEIVED, text: 'ok, souhlas', threadId: 't-1' },
+      state: 'other_reply',
+    },
+    at,
+  )
+}
+
+/** _Je to souhlas_ as the card sends it, with the reply it showed. */
+async function consent(
+  app: TestApp,
+  browser: ReturnType<TestApp['browser']>,
+  batch: BatchRow,
+  replyId?: string,
+) {
+  let current = await createArtworkStore(app.database).findBatch(batch.id)
+  return browser.post(
+    `/review/batches/${batch.id}/consent`,
+    { reply: replyId ?? current?.replyMessageId ?? '' },
+    '/review',
+  )
+}
+
 async function setup() {
   let app = await createTestApp()
   await app.directory.seedInitialAdmin(MARIE, Temporal.Now.instant())
@@ -97,8 +142,9 @@ describe('Ke kontrole', () => {
     let { app, batch, browser, store } = await setup()
     try {
       await replyTo(app, batch, 'ok, souhlas')
-      let answer = await browser.post(`/review/batches/${batch.id}/consent`, {}, '/review')
+      let answer = await consent(app, browser, batch)
       assert.equal(answer.status, 303)
+      assert.equal(answer.headers.get('Location'), `/review#reply-${batch.id}`)
       let stored = await store.findBatch(batch.id)
       assert.equal(stored?.consentVerifiedByEmail, MARIE)
       assert.equal(stored?.consentVerifiedByName, 'Marie Horáková')
@@ -110,7 +156,12 @@ describe('Ke kontrole', () => {
         settled,
         /Souhlas zaznamenán\. Pokus o uložení konverzace proběhne kolem \d+:\d\d\./,
       )
-      assert.match(settled, /class="vdm-toast__action"[^>]*>Vrátit</)
+      assert.match(
+        settled,
+        new RegExp(
+          `<form action="/review/batches/${batch.id}/consent/undo" method="post"[^>]*><input name="_csrf" type="hidden" value="[^"]+" /><button type="submit" class="vdm-toast__action"`,
+        ),
+      )
       assert.match(settled, /vdm-btn--ghost vdm-btn--sm">Vrátit</)
       assert.doesNotMatch(settled, />Ke kontrole<span/)
 
@@ -156,8 +207,9 @@ describe('Ke kontrole', () => {
     let { app, batch, browser, store } = await setup()
     try {
       await replyTo(app, batch, 'ok, souhlas')
-      await browser.post(`/review/batches/${batch.id}/consent`, {}, '/review')
-      await replyTo(app, batch, 'ok, souhlas', { archive: { error: 'Drive' } })
+      await consent(app, browser, batch)
+      let { replyMessageId } = (await store.findBatch(batch.id)) ?? {}
+      await reportAgain(app, batch, replyMessageId ?? '', { error: 'Drive' })
       let html = await (await browser.get('/review')).text()
       assert.match(html, /konverzace se neuložila/)
       assert.doesNotMatch(html, /vdm-btn--ghost vdm-btn--sm">Vrátit</)
@@ -182,11 +234,57 @@ describe('Ke kontrole', () => {
     }
   })
 
-  it('sends somebody not signed in to sign in', async () => {
-    let { app } = await setup()
+  it('sends somebody not signed in to sign in, and records nothing they send', async () => {
+    let { app, batch, store } = await setup()
     try {
-      let response = await app.browser().get('/review')
+      await replyTo(app, batch, 'ok, souhlas')
+      let stranger = app.browser()
+      let response = await stranger.get('/review')
       assert.equal(response.status, 303)
+      assert.match(response.headers.get('Location') ?? '', /^\/sign-in/)
+      await consent(app, stranger, batch)
+      assert.equal((await store.findBatch(batch.id))?.consentVerifiedAt, null)
+    } finally {
+      await app.close()
+    }
+  })
+
+  it('confirms only the reply the card showed', async () => {
+    let { app, batch, browser, store } = await setup()
+    try {
+      await replyTo(app, batch, 'ok, souhlas')
+      let shown = (await store.findBatch(batch.id))?.replyMessageId ?? ''
+      await replyTo(app, batch, 'Ještě počkejte, prosím.')
+      await consent(app, browser, batch, shown)
+      assert.equal((await store.findBatch(batch.id))?.consentVerifiedAt, null)
+    } finally {
+      await app.close()
+    }
+  })
+
+  it('sends a decided reply back to Ke kontrole when the provider writes again', async () => {
+    let { app, batch, browser, store } = await setup()
+    try {
+      await replyTo(app, batch, 'ok, souhlas')
+      await consent(app, browser, batch)
+      await replyTo(app, batch, 'Ne, beru zpět.')
+      let stored = await store.findBatch(batch.id)
+      assert.equal(stored?.consentVerifiedAt, null)
+      assert.equal(await store.reviewCount(), 1)
+    } finally {
+      await app.close()
+    }
+  })
+
+  it('records nothing in an issue that was closed', async () => {
+    let { app, batch, browser, issueId, store } = await setup()
+    try {
+      await replyTo(app, batch, 'ok, souhlas')
+      await app.database.exec(
+        sql`UPDATE issues SET closed_at = ${'2026-11-19T10:00:00.000Z'} WHERE id = ${issueId}`,
+      )
+      await consent(app, browser, batch)
+      assert.equal((await store.findBatch(batch.id))?.consentVerifiedAt, null)
     } finally {
       await app.close()
     }

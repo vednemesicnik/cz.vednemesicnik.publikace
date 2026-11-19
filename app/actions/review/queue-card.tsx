@@ -11,6 +11,8 @@ export type QueueCardView = {
   callout: { text: string; title: string | null; tone: 'error' | 'info' } | null
   /** Where _Je to souhlas_ posts, or `null` where the card offers no decision. */
   consentAction: string | null
+  /** The reply _Je to souhlas_ confirms, so a newer one that came meanwhile is not. */
+  consentReplyId: string | null
   id: number
   isSettled: boolean
   /** `Obrazová díla · 2 díla · VDM_2026_5`. */
@@ -33,6 +35,8 @@ export type QueueCardView = {
 export function QueueCard(handle: Handle<{ card: QueueCardView }>) {
   return () => {
     let { card } = handle.props
+    /* The buttons say what they do and the card says which reply: a screen reader hears both. */
+    let aboutId = `reply-${card.id}-about`
     let hasActions = card.consentAction !== null || card.undoAction !== null || card.menu !== null
 
     return (
@@ -41,7 +45,7 @@ export function QueueCard(handle: Handle<{ card: QueueCardView }>) {
         id={`reply-${card.id}`}
       >
         <div class="vdm-queue-item__head">
-          <div class="vdm-queue-item__about">
+          <div class="vdm-queue-item__about" id={aboutId}>
             <span class="vdm-queue-item__kind">{card.kind}</span>
             {card.titleHref === null ? (
               <span class="vdm-queue-item__title">{card.title}</span>
@@ -87,7 +91,12 @@ export function QueueCard(handle: Handle<{ card: QueueCardView }>) {
             {card.consentAction === null ? null : (
               <form action={card.consentAction} method="post">
                 <CsrfField />
-                <button class="vdm-btn vdm-btn--primary vdm-btn--sm" type="submit">
+                <input name="reply" type="hidden" value={card.consentReplyId ?? ''} />
+                <button
+                  aria-describedby={aboutId}
+                  class="vdm-btn vdm-btn--primary vdm-btn--sm"
+                  type="submit"
+                >
                   {CONSENT_LABEL}
                 </button>
               </form>
@@ -95,7 +104,11 @@ export function QueueCard(handle: Handle<{ card: QueueCardView }>) {
             {card.undoAction === null ? null : (
               <form action={card.undoAction} method="post">
                 <CsrfField />
-                <button class="vdm-btn vdm-btn--ghost vdm-btn--sm" type="submit">
+                <button
+                  aria-describedby={aboutId}
+                  class="vdm-btn vdm-btn--ghost vdm-btn--sm"
+                  type="submit"
+                >
                   {UNDO_LABEL}
                 </button>
               </form>

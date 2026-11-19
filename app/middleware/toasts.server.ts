@@ -54,10 +54,13 @@ function readToast(value: unknown): ToastMessage | null {
   return read === null ? toast : { ...toast, action: read }
 }
 
-/* Only an address of this app: the action is a form the page draws. */
+/*
+ * Only a path of this app: the action is a form the page draws, with the CSRF token in it. A
+ * second slash or a backslash after the first would make the browser read another host.
+ */
 function readAction(value: unknown): ToastAction | null {
   if (typeof value !== 'object' || value === null) return null
   let { action, label } = value as { action?: unknown; label?: unknown }
-  if (typeof action !== 'string' || !action.startsWith('/') || action.startsWith('//')) return null
+  if (typeof action !== 'string' || !/^\/(?![/\\])/.test(action)) return null
   return typeof label === 'string' && label !== '' ? { action, label } : null
 }
