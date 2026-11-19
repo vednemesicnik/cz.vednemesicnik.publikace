@@ -275,9 +275,10 @@ a run within that window skips it.
 4. On a second batch, archive the thread in `publikace@`'s mailbox first, then answer exactly
    _Souhlasím_, and run the job. The reply is found though the thread is not in the inbox. The
    batch goes straight to _Schváleno_, and its PDF carries no note.
-5. On a third batch, answer _Souhlasím_ and stop the run in the editor once _Claimed_ is logged and
-   before _Reported_. After ten minutes, run the job again. `Licence` holds one PDF for that batch,
-   not two.
+5. On a third batch, answer _Souhlasím_, run the job, and stop the app as soon as the log shows
+   _Claimed_. The reply check and the PDF take seconds, so the PDF is made and the report ends in
+   _Report refused (unreachable…)_. Start the app, wait ten minutes, and run the job again.
+   `Licence` holds one PDF for that batch, not two, and the batch is _Schváleno_.
 6. On a fourth batch, answer with text under a quoted line („Souhlasím“, the quote, then „Ale bez
    třetího obrázku.“). The card quotes the whole reply, the objection included, and nothing is
    archived.
