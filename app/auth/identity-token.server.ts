@@ -8,11 +8,11 @@ type JsonWebKey = webcrypto.JsonWebKey
  * that is the Drive check that follows (`doc-permissions.server.ts`).
  *
  * The signature is checked against Google's own keys, the issuer is Google, the token has not
- * expired and Google verified the address. The audience is checked only against the list in
- * `DOC_MENU_TOKEN_AUDIENCES`: every Doc carries its own copy of the bound script, and a copy
- * may answer to a Cloud project of its own, so an empty list is the decided case of a token
- * whose audience cannot be pinned (#50). The Drive check then is what refuses a token issued
- * to anything else.
+ * expired and Google verified the address. The audience is one of `DOC_MENU_TOKEN_AUDIENCES`, or
+ * any when that says `*`: every Doc carries its own copy of the bound script, and a copy may
+ * answer to a Cloud project of its own, so production names one of the two on purpose and an
+ * empty list refuses every token (#50). With `*`, the Drive check is what refuses a token
+ * issued to anything else.
  *
  * Never throws. Google's keys out of reach is `unavailable`, a "don't know" the script answers
  * with its own dialog; every other failure is a refusal, which tells the caller nothing.
@@ -27,6 +27,15 @@ const SKEW_SECONDS = 60
 
 /** Google's keys are kept this long when the answer says nothing of it. */
 const DEFAULT_KEYS_SECONDS = 3600
+
+/**
+ * A token naming a key the cache does not hold fetches Google's keys again at most this often,
+ * so a stream of made-up `kid`s is not a stream of calls to Google.
+ */
+const REFETCH_SECONDS = 60
+
+/** Every audience, chosen on purpose where the copies of the bound script share none. */
+export type TokenAudiences = readonly string[] | 'any'
 
 export type VerifiedIdentity = { email: string; name: string | null }
 
@@ -54,8 +63,8 @@ function maxAgeOf(response: Response): number {
 }
 
 export function createIdentityTokenVerifier(options: {
-  /** The accepted `aud` values. Empty accepts any audience. */
-  audiences: readonly string[]
+  /** The accepted `aud` values, or `any`. An empty list accepts none. */
+  audiences: TokenAudiences
   fetch?: typeof globalThis.fetch
   /** Seconds since the epoch. */
   now?: () => number
@@ -63,6 +72,8 @@ export function createIdentityTokenVerifier(options: {
   let send = options.fetch ?? globalThis.fetch
   let seconds = options.now ?? (() => Math.floor(Date.now() / 1000))
   let cached: Keys | null = null
+  let lastFetchAt = Number.NEGATIVE_INFINITY
+  let loading: Promise<Keys | null> | null = null
 
   async function loadKeys(): Promise<Keys | null> {
     try {
@@ -87,15 +98,28 @@ export function createIdentityTokenVerifier(options: {
     }
   }
 
-  /* The cached keys while they are fresh and know the `kid`; otherwise one fetch, because Google
-     rotates its keys and a token may name one the cache has not seen yet. */
-  async function keyFor(kid: string): Promise<JsonWebKey | 'unavailable' | null> {
-    if (cached !== null && cached.expiresAt > seconds() && cached.keys.has(kid)) {
-      return cached.keys.get(kid) ?? null
+  /** One fetch at a time: calls that arrive while it runs wait for the same answer. */
+  async function refresh(): Promise<Keys | null> {
+    if (loading === null) {
+      lastFetchAt = seconds()
+      loading = loadKeys().finally(() => {
+        loading = null
+      })
     }
-    let fresh = await loadKeys()
-    if (fresh === null) return 'unavailable'
-    cached = fresh
+    let fresh = await loading
+    if (fresh !== null) cached = fresh
+    return fresh
+  }
+
+  /* The cached keys while they are fresh and know the `kid`. Otherwise Google may have rotated
+     them, so they are fetched again, but no sooner than `REFETCH_SECONDS` after the last fetch
+     while the cache is still fresh: until then an unknown `kid` is simply not Google's. */
+  async function keyFor(kid: string): Promise<JsonWebKey | 'unavailable' | null> {
+    let isFresh = cached !== null && cached.expiresAt > seconds()
+    if (isFresh && cached?.keys.has(kid)) return cached.keys.get(kid) ?? null
+    if (isFresh && seconds() - lastFetchAt < REFETCH_SECONDS) return null
+    let fresh = await refresh()
+    if (fresh === null) return isFresh ? null : 'unavailable'
     return fresh.keys.get(kid) ?? null
   }
 
@@ -137,8 +161,14 @@ export function createIdentityTokenVerifier(options: {
     if (typeof payload['iss'] !== 'string' || !ISSUERS.has(payload['iss'])) {
       return { status: 'refused' }
     }
-    if (options.audiences.length > 0 && !options.audiences.includes(String(payload['aud']))) {
-      return { status: 'refused' }
+    if (options.audiences !== 'any') {
+      let audiences = options.audiences
+      let claimed = Array.isArray(payload['aud']) ? payload['aud'] : [payload['aud']]
+      if (
+        !claimed.some((audience) => typeof audience === 'string' && audiences.includes(audience))
+      ) {
+        return { status: 'refused' }
+      }
     }
     let email = payload['email']
     if (typeof email !== 'string' || email === '' || payload['email_verified'] !== true) {

@@ -203,4 +203,23 @@ describe('the Doc menu’s Označit probíhající korekturu', () => {
       await app.close()
     }
   })
+
+  it('stops one account after twenty calls in ten minutes, before Drive is asked', async () => {
+    let { app, article } = await setup()
+    try {
+      let body = { documentId: article.docId, metaDocumentId: article.docId }
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        assert.equal((await call(app, PREVIEW, body)).status, 200)
+      }
+      let asked = app.drive.calls.length
+      let over = await call(app, PREVIEW, body)
+      assert.equal(over.status, 429)
+      assert.equal(app.drive.calls.length, asked)
+
+      let eva = { email: 'eva.mala@external.test', name: 'Eva Malá' }
+      assert.equal((await call(app, PREVIEW, body, fakeIdentityToken(eva))).status, 200)
+    } finally {
+      await app.close()
+    }
+  })
 })

@@ -2,7 +2,11 @@ import { generateKeyPairSync, sign } from 'node:crypto'
 import * as assert from 'remix/assert'
 import { describe, it } from 'remix/test'
 
-import { createIdentityTokenVerifier, GOOGLE_CERTS_URL } from './identity-token.server.ts'
+import {
+  createIdentityTokenVerifier,
+  GOOGLE_CERTS_URL,
+  type TokenAudiences,
+} from './identity-token.server.ts'
 
 const NOW = 1_795_100_000
 
@@ -49,8 +53,12 @@ function certs(...keys: unknown[]) {
   return { calls, fetch }
 }
 
-function verifier(fetch: typeof globalThis.fetch, audiences: string[] = []) {
-  return createIdentityTokenVerifier({ audiences, fetch, now: () => NOW })
+function verifier(
+  fetch: typeof globalThis.fetch,
+  audiences: TokenAudiences = 'any',
+  now: () => number = () => NOW,
+) {
+  return createIdentityTokenVerifier({ audiences, fetch, now })
 }
 
 describe('the identity token of a click in the Doc menu', () => {
@@ -85,24 +93,48 @@ describe('the identity token of a click in the Doc menu', () => {
     assert.deepEqual(await verify(''), refused)
   })
 
-  it('checks the audience only against the configured list', async () => {
+  it('checks the audience against the list, takes any only when told to, and none from an empty list', async () => {
     let keys = certs(jwk('k1'))
     assert.equal((await verifier(keys.fetch, ['script-client'])(token())).status, 'verified')
+    assert.equal(
+      (await verifier(keys.fetch, ['script-client'])(token({ aud: ['other', 'script-client'] })))
+        .status,
+      'verified',
+    )
     assert.equal((await verifier(keys.fetch, ['another-client'])(token())).status, 'refused')
-    assert.equal((await verifier(keys.fetch)(token({ aud: 'anything' }))).status, 'verified')
+    assert.equal((await verifier(keys.fetch, [])(token())).status, 'refused')
+    assert.equal((await verifier(keys.fetch, 'any')(token({ aud: 'anything' }))).status, 'verified')
   })
 
-  it('fetches the keys again for a key it has not seen, and keeps them otherwise', async () => {
+  it('keeps the keys, and fetches them again for an unknown key at most once a minute', async () => {
     let keys = certs(jwk('k1'), jwk('k2', OTHER.publicKey))
-    let verify = verifier(keys.fetch)
+    let clock = NOW
+    let verify = verifier(keys.fetch, 'any', () => clock)
 
     await verify(token())
     await verify(token())
+    assert.equal((await verify(token({}, { key: OTHER.privateKey, kid: 'k2' }))).status, 'verified')
     assert.equal(keys.calls.count, 1)
 
-    assert.equal((await verify(token({}, { key: OTHER.privateKey, kid: 'k2' }))).status, 'verified')
-    assert.equal((await verify(token({}, { kid: 'k-unknown' }))).status, 'refused')
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      assert.equal((await verify(token({}, { kid: `k-made-up-${attempt}` }))).status, 'refused')
+    }
+    assert.equal(keys.calls.count, 1)
+
+    clock = NOW + 61
+    assert.equal(
+      (await verify(token({ exp: clock + 600 }, { kid: 'k-unknown' }))).status,
+      'refused',
+    )
     assert.equal(keys.calls.count, 2)
+  })
+
+  it('shares one fetch among calls that arrive while it runs', async () => {
+    let keys = certs(jwk('k1'))
+    let verify = verifier(keys.fetch)
+    let checks = await Promise.all([verify(token()), verify(token()), verify(token())])
+    assert.ok(checks.every((check) => check.status === 'verified'))
+    assert.equal(keys.calls.count, 1)
   })
 
   it('answers unavailable, never refused, when Google’s keys are out of reach', async (t) => {

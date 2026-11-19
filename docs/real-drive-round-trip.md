@@ -203,8 +203,8 @@ _Vytvořit kopii_, as the app copies it for every article. In each copy's bound 
       already, then run a throwaway function that logs the decoded payload of
       `ScriptApp.getIdentityToken()`;
 - [ ] compare `aud` between the two copies. The same value in both, and in every later copy, goes
-      into `DOC_MENU_TOKEN_AUDIENCES`. Different values leave the variable empty, and the Drive
-      check is then what refuses a token from anything else;
+      into `DOC_MENU_TOKEN_AUDIENCES`. Different values make it `*`, and the Drive check is then
+      what refuses a token from anything else. Production does not start without one of the two;
 - [ ] note whether `name` is in the payload with `profile`. Without it the app records and shows
       the address (`12a`, `12p`);
 - [ ] open a `showModalDialog` whose button calls `google.script.run`, in a browser where two Google

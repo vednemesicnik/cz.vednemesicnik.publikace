@@ -27,7 +27,8 @@ import { routes } from '../../../routes.ts'
  * `_meta.json` beside it, which tells a copy of an article apart from a Doc the app never knew.
  *
  * It answers `{ dialog }` for the script to draw, refusals included, or 503 when Google, Drive or
- * the membership service could not be asked: the script then shows its own dialog. Nothing
+ * the membership service could not be asked, and 429 for an account over its cap: the script
+ * then shows its own dialog. Nothing
  * here sets a cookie, and no answer to a caller who is refused says anything of an article.
  */
 
@@ -45,6 +46,39 @@ type Call = { documentId: string; metaDocumentId: string | null }
 
 /** Drive IDs are short; anything else is not a call from the menu. */
 const MAX_ID_LENGTH = 200
+
+/**
+ * The calls one verified account may make in `CALLS_WINDOW_MINUTES` before Drive is asked
+ * anything for it. A click is two calls and a proofreader clicks a handful of times, so this
+ * stops only a script that walks Doc IDs with the app's Drive account behind it. Over the cap
+ * the answer is a 429, which the bound script meets with its own _Zkuste to za chvíli znovu_.
+ */
+const CALLS_PER_ACCOUNT = 20
+const CALLS_WINDOW_MINUTES = 10
+
+/** The counts are in memory: the app is one process on one machine, and a restart forgets them. */
+function createCallCounter(now: () => Temporal.Instant) {
+  let calls = new Map<string, Temporal.Instant[]>()
+  return (email: string): boolean => {
+    let at = now()
+    let since = at.subtract({ minutes: CALLS_WINDOW_MINUTES })
+    let recent = (calls.get(email) ?? []).filter(
+      (call) => Temporal.Instant.compare(call, since) > 0,
+    )
+    if (recent.length >= CALLS_PER_ACCOUNT) {
+      calls.set(email, recent)
+      return false
+    }
+    calls.set(email, [...recent, at])
+    /* Accounts that went quiet leave, so the map holds only the last window's callers. */
+    if (calls.size > 1000) {
+      for (let [key, times] of calls) {
+        if (times.every((call) => Temporal.Instant.compare(call, since) <= 0)) calls.delete(key)
+      }
+    }
+    return true
+  }
+}
 
 function isDocumentId(value: unknown): value is string {
   return typeof value === 'string' && value !== '' && value.length <= MAX_ID_LENGTH
@@ -75,6 +109,16 @@ function answer(dialog: DocMenuDialog): Response {
   return Response.json({ dialog }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
+function tooMany(): Response {
+  return Response.json(
+    { error: 'too_many_requests' },
+    {
+      headers: { 'Cache-Control': 'no-store', 'Retry-After': String(CALLS_WINDOW_MINUTES * 60) },
+      status: 429,
+    },
+  )
+}
+
 function unavailable(): Response {
   return Response.json(
     { error: 'unavailable' },
@@ -83,6 +127,8 @@ function unavailable(): Response {
 }
 
 export default function createDocMenuController(dependencies: DocMenuDependencies) {
+  let isWithinCap = createCallCounter(dependencies.now)
+
   async function targetOf(article: Article, isCopy: boolean): Promise<ProofreadingTarget> {
     let issue = await dependencies.issues.findById(article.issueId)
     if (issue === null) return { kind: 'unknown' }
@@ -116,6 +162,7 @@ export default function createDocMenuController(dependencies: DocMenuDependencie
     if (identity.status === 'refused')
       return answer(refusedAccountDialog(PROOFREADING_REFUSED_RESULT))
     let account: VerifiedIdentity = identity.identity
+    if (!isWithinCap(account.email)) return tooMany()
 
     let article = await dependencies.articles.findCreatedByDocId(call.documentId)
     let original =

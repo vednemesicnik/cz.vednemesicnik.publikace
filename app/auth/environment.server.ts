@@ -1,3 +1,5 @@
+import type { TokenAudiences } from './identity-token.server.ts'
+
 /**
  * The sign-in configuration, read from the environment.
  *
@@ -167,12 +169,18 @@ export function publicMailPerDay(fallback: number): number {
 }
 
 /**
- * The audiences an identity token from the article Doc's menu may carry, comma-separated. Empty
- * checks none: a Doc copied from the template may answer to a Cloud project of its own, and then
- * the Drive check on who may edit the Doc is what refuses a token issued to anything else (#50).
+ * The audiences an identity token from the article Doc's menu may carry, comma-separated, or `*`
+ * for any. Production names one of the two on purpose and does not start without it: every Doc
+ * carries its own copy of the bound script, and when those copies share no Cloud project, `*`
+ * leaves the Drive check on who may edit the Doc to refuse a token issued to anything else (#50).
+ * Outside production an empty value is `*`, so the fake app and the suite need nothing.
  */
-export function docMenuTokenAudiences(): string[] {
-  return optional('DOC_MENU_TOKEN_AUDIENCES')
+export function docMenuTokenAudiences(): TokenAudiences {
+  let value = isProduction()
+    ? required('DOC_MENU_TOKEN_AUDIENCES')
+    : optional('DOC_MENU_TOKEN_AUDIENCES', '*')
+  if (value.trim() === '*') return 'any'
+  return value
     .split(',')
     .map((audience) => audience.trim())
     .filter((audience) => audience !== '')
