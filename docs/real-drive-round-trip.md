@@ -3,7 +3,7 @@
 The suite and `pnpm app:fake` run every Drive, Docs and Mailer call against
 `app/drive/fake-drive.server.ts` and a recording mailer. Those can only promise what the code
 already expects. This run sends the same calls to the real services, from a local app, on a
-test shared drive and a test Mailer. It is done once locally and once more on production before
+test shared drive, through the Mailer of `publikace@`, to testers' addresses only. It is done once locally and once more on production before
 the newsroom moves off the scripts. Until both pass, the scripts and the sheets stay the real
 path.
 
@@ -34,12 +34,15 @@ Nothing here is real data in the repository: the IDs, the URLs and the testers' 
       bound script, is in that drive. Its body still contains `{{NAZEV_CLANKU}}`, and its ID
       is `ARTICLE_TEMPLATE_DOCUMENT_ID`.
 
-**A test deployment of the Mailer** (`SCRIPT__Mail__Send`):
+**The Mailer of `publikace@`** (`SCRIPT__Mail__Send`), its existing deployment and not a new
+one. `OWN_SECRET` belongs to the project, so a second deployment would share it and keep
+nothing apart. What keeps the run away from real people is the recipients alone, and the Mailer
+sends to nobody the request does not name:
 
-- [ ] deployed as a web app run as `publikace@`, with access _Anyone_. Anything narrower answers
-      `/exec` with a login page, not JSON;
-- [ ] its secret in its Script Properties, the same value as `MAIL_SEND_SECRET`; its `/exec` URL
-      as `MAIL_SEND_URL`;
+- [ ] `GET` on its `/exec` URL answers with the JSON contract. An HTML page means the deployment
+      is not _Anyone_ or the project was never authorised;
+- [ ] that URL as `MAIL_SEND_URL`, and `OWN_SECRET` from the project's Script Properties as
+      `MAIL_SEND_SECRET`, copied by the tester;
 - [ ] every address the run types into a form is one a tester reads.
 
 **`.env`**, edited by the tester:
@@ -143,7 +146,7 @@ In order: each check uses what the one before it made.
 
 - [ ] remove `publikace.app@` from the test shared drive: _Publikace_ is the only shared drive
       it belongs to, because it holds the full `drive` scope;
-- [ ] archive the test deployment of the Mailer;
+- [ ] delete the shared drive `Publikace (test)`, once its bin has been looked at;
 - [ ] delete `./db/round-trip.sqlite` and set `.env` back;
 - [ ] write the results into the issue: each check passed, fixed in a commit, or moved to a new
       issue.
