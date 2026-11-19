@@ -165,3 +165,15 @@ export function publicMailPerDay(fallback: number): number {
   }
   return parsed
 }
+
+/**
+ * The audiences an identity token from the article Doc's menu may carry, comma-separated. Empty
+ * checks none: a Doc copied from the template may answer to a Cloud project of its own, and then
+ * the Drive check on who may edit the Doc is what refuses a token issued to anything else (#50).
+ */
+export function docMenuTokenAudiences(): string[] {
+  return optional('DOC_MENU_TOKEN_AUDIENCES')
+    .split(',')
+    .map((audience) => audience.trim())
+    .filter((audience) => audience !== '')
+}
