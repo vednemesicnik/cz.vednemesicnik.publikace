@@ -1,5 +1,5 @@
 /** A space no line may break at. */
-export const NBSP = ' '
+export const NBSP = '\u00a0'
 
 /*
  * A one-letter preposition or conjunction begins a word when it opens the text or follows a
