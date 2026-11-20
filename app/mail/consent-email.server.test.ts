@@ -53,6 +53,15 @@ describe('the consent request', () => {
     assert.ok(!html.includes('<po>'))
   })
 
+  it('opens with the logo of the magazine from its website', () => {
+    let html = message().htmlBody
+    assert.ok(
+      html.includes(
+        '<body style="margin:0;padding:24px;font-family:\'Helvetica Neue\',Arial,sans-serif"><img src="https://vednemesicnik.cz/images/email-logo.png" width="36" height="36" alt="Vedneměsíčník"',
+      ),
+    )
+  })
+
   it('asks for the „Souhlasím“ reply in a paragraph of its own', () => {
     let html = message().htmlBody
     assert.ok(html.includes('jediným slovem <strong>„Souhlasím“</strong>.</p>'))
