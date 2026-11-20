@@ -8,14 +8,14 @@ import { REPLY_CHECK_JOB, REPLY_CHECK_JOB_NAME } from './reply-check.ts'
 import { atTime, clockTime, formatDate, formatDay, formatDayMonth, pragueYear } from './time.ts'
 
 export type Job = {
+  /** What a reported failure left behind, in the history and over it: the job's own words. */
+  failedCallout: string
+  failedEvent: string
   /**
    * The sentence over every editor screen once the job failed twice in a row (`14d`): its name as
    * the subject and one consequence the editors can check, the shape every job's takes (`acs9lly8`).
    */
   failingBanner: string
-  /** What a reported failure left behind, in the history and over it: the job's own words. */
-  failedCallout: string
-  failedEvent: string
   /** As `job_runs` names it, and as its address does. */
   key: string
   name: string
@@ -29,10 +29,10 @@ export type Job = {
  */
 export const JOBS: readonly Job[] = [
   {
-    /* True of a run that never reported too: an artwork changes only when its run reports. */
-    failingBanner: 'Odpovědi k obrazovým dílům se teď v aplikaci nepromítají do stavu děl.',
     failedCallout: 'Úloha skončila s chybou. Na dílech se nic nezměnilo.',
     failedEvent: 'Skončila s chybou, na dílech se nic nezměnilo',
+    /* True of a run that never reported too: an artwork changes only when its run reports. */
+    failingBanner: 'Odpovědi k obrazovým dílům se teď v aplikaci nepromítají do stavu děl.',
     key: REPLY_CHECK_JOB,
     name: REPLY_CHECK_JOB_NAME,
     summary: 'přečte „Souhlasím“ k licencím, archivuje',

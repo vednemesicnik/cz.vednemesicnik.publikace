@@ -122,7 +122,9 @@ describe('Úlohy na pozadí (14d)', () => {
 
 describe('the banner of a job that keeps failing (14d)', () => {
   const BANNER = 'Odpovědi k obrazovým dílům se teď v aplikaci nepromítají do stavu děl.'
-  const BUTTON = /<a href="\/settings\/jobs" class="vdm-btn[^"]*">Zobrazit úlohy<\/a>/
+  /* Right after the banner's sentence: Settings has a button of its own to the same page. */
+  const BUTTON =
+    /nepromítají do stavu děl\.<\/p><div class="vdm-callout__actions"><a href="\/settings\/jobs" class="vdm-btn[^"]*">Zobrazit úlohy<\/a>/
 
   it('stands over every editor screen after two failed runs, leading to the jobs', async () => {
     let { app, browser } = await setup()
