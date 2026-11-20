@@ -6,7 +6,7 @@
 
 import type { Author } from './public/article-form.ts'
 import { formatDayMonth } from './time.ts'
-import { NBSP } from './typography.ts'
+import { NBSP } from './public/typography.ts'
 
 export {
   REQUIRED_LEGEND,

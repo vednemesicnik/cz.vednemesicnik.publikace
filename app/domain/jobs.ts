@@ -6,7 +6,7 @@
 import { isOverdue, type JobRunRecord, type JobState } from './job-run.ts'
 import { REPLY_CHECK_JOB, REPLY_CHECK_JOB_NAME } from './reply-check.ts'
 import { atTime, clockTime, formatDate, formatDay, formatDayMonth, pragueYear } from './time.ts'
-import { NBSP } from './typography.ts'
+import { NBSP } from './public/typography.ts'
 
 export type Job = {
   /** What a reported failure left behind, in the history and over it: the job's own words. */
