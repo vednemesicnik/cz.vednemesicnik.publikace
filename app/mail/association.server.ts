@@ -41,7 +41,11 @@ export function houseEnding(ending: { question: string; reason: string; signOff:
   ].join('')
 }
 
-/** The document around a body, with the subject as its title. */
+/**
+ * The document around a body, with the subject as its title. The font is the stack every e-mail
+ * of the magazine uses: a mail client loads no web font, so Inter would reach only the few who
+ * have it installed.
+ */
 export function htmlDocument(subject: string, body: string): string {
-  return `<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head><body style="margin:0;padding:24px;font-family:Inter,Arial,sans-serif">${body}</body></html>`
+  return `<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head><body style="margin:0;padding:24px;font-family:'Helvetica Neue',Arial,sans-serif">${body}</body></html>`
 }
