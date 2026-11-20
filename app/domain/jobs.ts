@@ -8,6 +8,11 @@ import { REPLY_CHECK_JOB, REPLY_CHECK_JOB_NAME } from './reply-check.ts'
 import { atTime, clockTime, formatDate, formatDay, formatDayMonth, pragueYear } from './time.ts'
 
 export type Job = {
+  /**
+   * The sentence over every editor screen once the job failed twice in a row (`14d`): its name as
+   * the subject and one consequence the editors can check, the shape every job's takes (`acs9lly8`).
+   */
+  failingBanner: string
   /** What a reported failure left behind, in the history and over it: the job's own words. */
   failedCallout: string
   failedEvent: string
@@ -24,6 +29,8 @@ export type Job = {
  */
 export const JOBS: readonly Job[] = [
   {
+    /* True of a run that never reported too: an artwork changes only when its run reports. */
+    failingBanner: 'Odpovědi k obrazovým dílům se teď v aplikaci nepromítají do stavu děl.',
     failedCallout: 'Úloha skončila s chybou. Na dílech se nic nezměnilo.',
     failedEvent: 'Skončila s chybou, na dílech se nic nezměnilo',
     key: REPLY_CHECK_JOB,
@@ -40,6 +47,16 @@ export const JOBS_TITLE = 'Úlohy na pozadí'
 export const SHOW_JOBS_LABEL = 'Zobrazit úlohy'
 export const SHOW_JOB_LABEL = 'Zobrazit'
 export const DETAILS_LABEL = 'Zobrazit podrobnosti'
+
+/** The banner when more than one job keeps failing: their sentences would not fit one Callout. */
+export const MANY_FAILING_JOBS_BANNER =
+  'U několika úloh na pozadí chybí potvrzení, že proběhly v pořádku.'
+
+/** The sentence of the banner over every editor screen for these failing jobs (`14d`). */
+export function failingJobsBanner(jobs: readonly Job[]): string {
+  let [only, ...others] = jobs
+  return only !== undefined && others.length === 0 ? only.failingBanner : MANY_FAILING_JOBS_BANNER
+}
 
 /** How far back the history reaches (`14e`). */
 export const HISTORY_DAYS = 30
