@@ -1,4 +1,9 @@
-import { coauthorLine, OPEN_DOCUMENT_LABEL, UPLOAD_ARTWORKS_LABEL } from '../domain/article.ts'
+import {
+  coauthorLine,
+  HAND_OVER_STEP,
+  OPEN_DOCUMENT_LABEL,
+  UPLOAD_ARTWORKS_LABEL,
+} from '../domain/article.ts'
 import {
   escapeHtml,
   houseEnding,
@@ -73,7 +78,7 @@ export function welcomeEmail(details: WelcomeDetails): MailMessage {
     coauthors === null ? '' : `<p style="${PARAGRAPH}">${escapeHtml(coauthors)}</p>`,
     `<p style="${PARAGRAPH}">Text pište přímo v dokumentu Google.</p>`,
     `<p style="${PARAGRAPH}"><a href="${escapeHtml(details.documentUrl)}" style="${PRIMARY}">${OPEN_DOCUMENT_LABEL}</a>&nbsp;&nbsp;<a href="${escapeHtml(details.artworksUrl)}" style="${OUTLINE}">${UPLOAD_ARTWORKS_LABEL}</a></p>`,
-    `<p style="${NOTE}">Až bude text připravený ke korektuře, dejte prosím vědět šéfredakci.</p>`,
+    `<p style="${NOTE}">${HAND_OVER_STEP}</p>`,
     houseEnding({
       question: WELCOME_QUESTION_LINE,
       reason: WELCOME_REASON_LINE,
