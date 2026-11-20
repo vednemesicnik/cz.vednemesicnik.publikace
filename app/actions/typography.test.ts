@@ -1,6 +1,7 @@
 import * as assert from 'remix/assert'
 import { describe, it } from 'remix/test'
 
+import { createIssueStore } from '../data/issues.server.ts'
 import { createLinkStore } from '../data/links.server.ts'
 import {
   connectDriveAccount,
@@ -8,7 +9,6 @@ import {
   seedAdmin,
   seedArticle,
   seedBatch,
-  seedIssue,
 } from '../test-app.server.ts'
 
 const MARIE = 'marie@vednemesicnik.test'
@@ -54,7 +54,12 @@ describe('one-letter words on the screens', () => {
     try {
       await seedAdmin(app, MARIE)
       await connectDriveAccount(app)
-      let issueId = await seedIssue(app, ISSUE)
+      let editor = app.browser()
+      await editor.signInAs(MARIE, 'Marie Horáková')
+      /* Through the app, so the issue's folders exist on the fake Drive and an article can be
+         created in it. */
+      await editor.post('/issues/new', { name: ISSUE }, '/issues/new')
+      let issueId = (await createIssueStore(app.database).findByName(ISSUE))?.id ?? 0
       let article = await seedArticle(app, issueId, SEEDED_ARTICLE)
       await seedBatch(app, article, issueId, {
         provider: { email: 'eva@external.test', name: PROVIDER },
@@ -80,8 +85,6 @@ describe('one-letter words on the screens', () => {
         'sign-in': await (await visitor.get('/sign-in')).text(),
       }
 
-      let editor = app.browser()
-      await editor.signInAs(MARIE, 'Marie Horáková')
       for (let path of [
         '/',
         '/issues/new',
@@ -97,6 +100,8 @@ describe('one-letter words on the screens', () => {
 
       assert.ok(readableText(pages[`/issues/${ISSUE}`] ?? '').includes(SEEDED_ARTICLE))
       assert.ok(readableText(pages['artworks page'] ?? '').includes(SEEDED_ARTICLE))
+      assert.ok(readableText(pages['article created'] ?? '').includes(CREATED_ARTICLE))
+      assert.ok(readableText(pages[`/issues/${ISSUE}?artworks=all`] ?? '').includes(PROVIDER))
       let untied = Object.entries(pages)
         .map(([page, html]) => [page, untiedWords(html)] as const)
         .filter(([, words]) => words.length > 0)
