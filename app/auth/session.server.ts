@@ -34,10 +34,35 @@ export const SIGNED_OUT_AT_SESSION_KEY = 'signedOutAt'
 
 /** What the session holds for a signed-in person. */
 export type StoredEditor = {
-  /** Epoch milliseconds until which the last answer about access is trusted. */
+  /**
+   * Epoch milliseconds until which the last answer about access is trusted. `0` when that answer
+   * rested on a service that did not reply: a "don't know" is asked again on the next request.
+   */
   authorizedUntil: number
   displayName: string
   email: string
+  /**
+   * The roles that answer gave (`10d`). A session that lacks them is decided again, as if its
+   * answer were old.
+   */
+  isEditor?: boolean
+  isProofreader?: boolean
+}
+
+/** What the session keeps of a decision that let somebody in. */
+export function storedPerson(decision: {
+  displayName: string
+  email: string
+  isSettled: boolean
+  roles: { isEditor: boolean; isProofreader: boolean }
+}): StoredEditor {
+  return {
+    authorizedUntil: decision.isSettled ? Date.now() + AUTHORIZATION_TTL_MS : 0,
+    displayName: decision.displayName,
+    email: decision.email,
+    isEditor: decision.roles.isEditor,
+    isProofreader: decision.roles.isProofreader,
+  }
 }
 
 function isProduction(): boolean {
