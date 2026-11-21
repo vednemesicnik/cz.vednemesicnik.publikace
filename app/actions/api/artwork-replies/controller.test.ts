@@ -8,6 +8,7 @@ import { batchState } from '../../../domain/artwork.ts'
 import {
   createTestApp,
   fakeIdentityToken,
+  EXPIRED_IDENTITY_TOKEN,
   JOB_TOKEN,
   seedArticle,
   seedBatch,
@@ -81,6 +82,10 @@ describe('the reply check’s API', () => {
       assert.equal((await call(app, CLAIM, { intervalMinutes: 30 }, null)).status, 401)
       let editor = fakeIdentityToken({ email: 'marie@vednemesicnik.test', name: 'Marie' })
       assert.equal((await call(app, CLAIM, { intervalMinutes: 30 }, editor)).status, 401)
+      assert.equal(
+        (await call(app, CLAIM, { intervalMinutes: 30 }, EXPIRED_IDENTITY_TOKEN)).status,
+        401,
+      )
       assert.equal(
         (await call(app, CLAIM, { intervalMinutes: 30 }, UNREACHABLE_IDENTITY_TOKEN)).status,
         503,
