@@ -1121,19 +1121,22 @@ export function createArticleStore(database: Database): ArticleStore {
     recordSending(runKey, key, outcome, at) {
       return database.transaction(async (db) => {
         /* Reported, so the lease ends. A clause already sent stays sent: a clause reported twice
-           in one report cannot turn it into a failure. */
+           in one report cannot turn it into a failure. A clause with a reply was claimed to be
+           asked about, not sent, so a sending result does not touch it. */
         let result =
           outcome.kind === 'sent'
             ? await db.exec(
                 sql`UPDATE article_clauses
                     SET state = 'sent', sent_at = coalesce(sent_at, ${stamp(at)}), error = NULL,
                         claimed_at = NULL
-                    WHERE clause_key = ${key} AND claim_key = ${runKey}`,
+                    WHERE clause_key = ${key} AND claim_key = ${runKey}
+                      AND reply_message_id IS NULL`,
               )
             : await db.exec(
                 sql`UPDATE article_clauses
                     SET state = 'failed', error = ${outcome.error}, claimed_at = NULL
-                    WHERE clause_key = ${key} AND claim_key = ${runKey} AND state != 'sent'`,
+                    WHERE clause_key = ${key} AND claim_key = ${runKey} AND state != 'sent'
+                      AND reply_message_id IS NULL`,
               )
         if ((result.affectedRows ?? 0) > 0) return 'done'
         let found = await db.exec(
@@ -1187,17 +1190,22 @@ export function createArticleStore(database: Database): ArticleStore {
     recordReply(runKey, key, report, at) {
       return database.transaction(async (db) => {
         let result = await db.exec(
-          sql`SELECT * FROM article_clauses WHERE clause_key = ${key} AND claim_key = ${runKey}`,
+          sql`SELECT * FROM article_clauses
+              WHERE clause_key = ${key} AND claim_key = ${runKey} AND state != 'pending'`,
         )
+        /* A clause still to send was claimed for sending, and has no reply to report. */
         let row = result.rows?.[0]
         if (row === undefined) return 'unknown'
         let id = Number(row['id'])
         let decision = decideReport({ ...toClauseStatus(row), discardedAt: null }, report, at)
         await applyConsentPatch(db, 'clauses', id, decision.patch)
-        /* A reply to an e-mail the Mailer did not confirm shows that it went after all. */
+        /* A reply to an e-mail the Mailer did not confirm shows that it went after all, by the
+           time the reply came at the latest. */
         if (decision.patch.reply !== undefined && row['state'] === 'failed') {
           await db.exec(
-            sql`UPDATE article_clauses SET state = 'sent', error = NULL WHERE id = ${id}`,
+            sql`UPDATE article_clauses SET state = 'sent', error = NULL,
+                  sent_at = coalesce(sent_at, reply_received_at)
+                WHERE id = ${id}`,
           )
         }
         /* Reported, so the next run may take it; the key stays for a repeat of this report. */
