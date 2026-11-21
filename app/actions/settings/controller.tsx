@@ -5,16 +5,18 @@ import { Session } from 'remix/session'
 import type { AccessContext } from '../../auth/access.server.ts'
 import type { SignedInUntilCookie } from '../../auth/session.server.ts'
 import type { JobRunStore } from '../../data/job-runs.server.ts'
+import type { ProofreadersStore } from '../../data/proofreaders.server.ts'
 import {
   type AccessKind,
   addedMessage,
   checkAddress,
+  checkProofreadersAddress,
   duplicateMessage,
   MEMBERSHIP_UNAVAILABLE_MESSAGE,
+  PROOFREADERS_SAVED,
   unknownGroupMessage,
 } from '../../domain/access.ts'
-import { jobState } from '../../domain/job-run.ts'
-import { JOBS, settingsSummary } from '../../domain/jobs.ts'
+import { JOBS, settingsSummary, stateOfJob } from '../../domain/jobs.ts'
 import { now } from '../../domain/time.ts'
 import { Access } from '../../middleware/access.server.ts'
 import { type Editor, requireEditor } from '../../middleware/auth.server.ts'
@@ -27,7 +29,12 @@ import { flashToast, Toasts } from '../../middleware/toasts.server.ts'
 import type { AppContext } from '../../router.ts'
 import { routes } from '../../routes.ts'
 import type { ToastMessage } from '../../ui/toast/component.tsx'
-import { type AddForm, type RemovalQuestion, SettingsPage } from './settings-page.tsx'
+import {
+  type AddForm,
+  type ProofreadersForm,
+  type RemovalQuestion,
+  SettingsPage,
+} from './settings-page.tsx'
 
 /**
  * What the helpers below read. Every action's context has it; it is written loosely because the
@@ -42,23 +49,27 @@ function accessOf(context: PageContext): AccessContext {
 type PageState = {
   addForm?: AddForm
   isRoleLost?: boolean
+  proofreadersForm?: ProofreadersForm
   question?: RemovalQuestion
 }
 
+type Stores = { proofreaders: ProofreadersStore; runs: JobRunStore }
+
 async function renderSettings(
   context: PageContext,
-  runs: JobRunStore,
+  { proofreaders, runs }: Stores,
   editor: Editor,
   state: PageState,
   init?: ResponseInit,
 ): Promise<Response> {
   let access = accessOf(context)
   let driveAccount = context.get(DriveAccount) as DriveAccountContext
-  let [accounts, groups, driveState, jobs] = await Promise.all([
+  let [accounts, groups, driveState, jobs, proofreadersAddress] = await Promise.all([
     access.directory.listAccounts(),
     access.directory.listGroups(),
     driveAccount.store.state(),
     Promise.all(JOBS.map(async (job) => ({ job, latest: await runs.latest(job.key) }))),
+    proofreaders.find(),
   ])
   let today = now()
 
@@ -76,8 +87,10 @@ async function renderSettings(
       groups={groups}
       isRoleLost={state.isRoleLost}
       jobsSummary={jobs.map(({ job, latest }) =>
-        settingsSummary(job, jobState(latest, today), today),
+        settingsSummary(job, stateOfJob(job, latest, today), today),
       )}
+      proofreaders={proofreadersAddress?.email ?? null}
+      proofreadersForm={state.proofreadersForm}
       question={state.question}
       toasts={context.get(Toasts) as readonly ToastMessage[]}
       today={today}
@@ -90,7 +103,7 @@ async function renderSettings(
  * A change sent by somebody who is not an administrator — by the time it arrived. `14b`: the
  * page comes back read-only with the Callout that says why, and nothing changed.
  */
-function roleLost(context: PageContext, runs: JobRunStore, editor: Editor): Promise<Response> {
+function roleLost(context: PageContext, runs: Stores, editor: Editor): Promise<Response> {
   return renderSettings(
     context,
     runs,
@@ -114,15 +127,13 @@ function formText(context: PageContext, name: string): string {
   return typeof value === 'string' ? value : ''
 }
 
-export type SettingsDependencies = {
-  runs: JobRunStore
-}
+export type SettingsDependencies = Stores
 
 export default function createSettingsController(
   signedInUntil: SignedInUntilCookie,
   dependencies: SettingsDependencies,
 ) {
-  let { runs } = dependencies
+  let runs = dependencies
   return createController(routes.settings, {
     middleware: [requireEditor(signedInUntil)],
     actions: {
@@ -231,6 +242,36 @@ export default function createSettingsController(
         if (group === undefined) return backToSettings()
 
         return renderSettings(context, runs, editor, { question: { group, kind: 'group' } })
+      },
+
+      /* `14f`: the dialog over Nastavení. Only an administrator changes the address, since it
+         decides who works as a proofreader (`sh0zp1if`); anybody else goes back to the page. */
+      async askProofreaders(context) {
+        let editor = context.auth.identity
+        if (!editor.isAdmin) return backToSettings()
+        let current = await dependencies.proofreaders.find()
+        return renderSettings(context, runs, editor, {
+          proofreadersForm: { error: null, value: current?.email ?? '' },
+        })
+      },
+
+      async saveProofreaders(context) {
+        let editor = context.auth.identity
+        if (!editor.isAdmin) return roleLost(context, runs, editor)
+        let value = formText(context, 'email')
+        let address = checkProofreadersAddress(value, context.get(Access).domain)
+        if (!address.ok) {
+          return renderSettings(
+            context,
+            runs,
+            editor,
+            { proofreadersForm: { error: address.message, value } },
+            { status: 400 },
+          )
+        }
+        await dependencies.proofreaders.save(address.email, editor.email, now())
+        flashToast(context, PROOFREADERS_SAVED)
+        return backToSettings()
       },
 
       async removeGroup(context) {
