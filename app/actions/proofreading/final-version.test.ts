@@ -184,10 +184,7 @@ describe('the final version (15f, 15g)', () => {
 
       await proofreader.post(undo, {}, PAGE)
       let page = await (await proofreader.get(PAGE)).text()
-      assert.equal(
-        statusText(page),
-        'Finální verzi už nelze zrušit. Příprava e-mailů k odeslání už začala.',
-      )
+      assert.equal(statusText(page), 'Odesílání e-mailů už začalo. Finální verzi nelze zrušit.')
       assert.equal(cardOf(page, articleId), '')
       let article = await createArticleStore(app.database).findById(articleId)
       assert.equal(article?.finalVersion?.isCancellable, false)

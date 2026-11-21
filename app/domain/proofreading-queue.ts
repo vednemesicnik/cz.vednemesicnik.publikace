@@ -227,7 +227,8 @@ export function cancelRefusalToast(refusal: QueueRefusal): RaceToast {
 }
 
 /*
- * The final version (`15f`, `15g`, `12q`), worded as the copywriter settled it (`m8jy13rx`).
+ * The final version (`15f`, `15g`, `12q`), worded as the copywriter settled it (`m8jy13rx`, and
+ * `qqdbrrms` for when it can no longer be cancelled).
  * The texts say nothing of the job's next run: the line that bounds a cancel is the moment a run
  * takes a clause, which no estimate can tell, and a proofreader never reads the word _úloha_.
  */
@@ -253,7 +254,7 @@ export const MARK_FINAL_DIALOG_MAIL = tied`Každému autorovi se pošle PDF s ž
 export function signaturesLabel(count: number): string {
   return count === 1 ? tied`Jméno v doložce` : tied`Jména v doložkách`
 }
-export const MARK_FINAL_DIALOG_CANCEL = tied`Finální verzi můžete zrušit, jen dokud nezačne příprava e-mailů k odeslání. Ta může začít už za chvíli.`
+export const MARK_FINAL_DIALOG_CANCEL = tied`Jakmile se začnou odesílat e-maily autorům, finální verzi už nezrušíte.`
 
 /** A Callout in the dialog: the step first, the result under it (`11c`). */
 export type DialogError = { text: string; title: string }
@@ -289,7 +290,7 @@ export const FINAL_DOC_PROOFREADER: DialogError = {
 
 export const FINAL_SAVED_TOAST = tied`Finální verze je uložená.`
 export const FINAL_CANCELLED_TOAST = tied`Článek je zpět v korektuře.`
-export const FINAL_TOO_LATE_TOAST = tied`Finální verzi už nelze zrušit. Příprava e-mailů k odeslání už začala.`
+export const FINAL_TOO_LATE_TOAST = tied`Odesílání e-mailů už začalo. Finální verzi nelze zrušit.`
 export const CANCEL_FINAL_FAILED_TOAST = tied`Zkuste finální verzi hned zrušit znovu. Na zrušení může zbývat jen chvíle.`
 export const FINAL_ALREADY_CANCELLED_TOAST = tied`Finální verze už je zrušená.`
 
