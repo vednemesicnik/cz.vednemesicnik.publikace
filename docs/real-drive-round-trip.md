@@ -30,8 +30,8 @@ Nothing here is real data in the repository: the IDs, the URLs and the testers' 
 - [ ] `publikace.app@` is a member with the role **Content manager**, not Manager, because that
       is its role on _Publikace_ and the cleanup's bin is what is being tried;
 - [ ] a folder in it holds the issues, and its ID is `ISSUES_FOLDER_ID`;
-- [ ] the drive allows sharing with people outside the organisation, and the issues folder is
-      shared as _Kdokoli s odkazem: Editor_. Every issue, article folder and Doc inherits it, as on
+- [x] the drive allows sharing with people outside the organisation, and the issues folder is
+      shared as _Každý, kdo má odkaz · Přispěvatel_. Every issue, article folder and Doc inherits it, as on
       _Redakce_: an author outside the domain edits the Doc through its link, and the Doc menu
       accepts whoever may edit.
 
@@ -256,7 +256,7 @@ What it showed, on 20 November 2026: an article's Doc made by the scripts on _Re
 No script and nothing in the app shares a Doc; the link is the right to edit, for authors outside
 the domain too. A Doc the app made on the test drive had only the members and the domain as
 readers, because its issues folder was never opened. On the drive the app uses, the issues
-folder therefore carries _Kdokoli s odkazem: Editor_ and the drive allows sharing outside the
+folder therefore carries _Každý, kdo má odkaz · Přispěvatel_ and the drive allows sharing outside the
 organisation (see the test shared drive above). With that grant the app's check answers yes
 before it asks about any group, so no group is looked up.
 

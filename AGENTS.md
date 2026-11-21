@@ -127,7 +127,7 @@ Fly.io, and from `v1.0.0` also a GitHub Release. See
   browser's default Google account rather than the one that clicked: the menu item writes its
   token into the dialog, and the dialog's buttons send it to the app with `fetch`.
 - **The link to a Doc is the right to edit it.** The issues folder on the shared drive is shared
-  as _Kdokoli s odkazem: Editor_, and the drive allows people outside the organisation, so every
+  as _Každý, kdo má odkaz · Přispěvatel_ (an editor, in a shared drive’s words), and the drive allows people outside the organisation, so every
   issue, article folder and Doc inherits it, as on _Redakce_. Authors outside the domain edit
   through the link; nothing in the app or the scripts shares a file with a person.
 
