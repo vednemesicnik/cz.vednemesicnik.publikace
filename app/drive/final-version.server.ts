@@ -105,7 +105,11 @@ async function mark(
       takenAt: input.takenAt,
     })
   } catch (error) {
-    await binAttempt(setup, article.folderId, attemptKey, stored.id)
+    /* A transaction that throws is rolled back; the read makes sure before the PDF goes. */
+    let after = await setup.articles.findById(input.id)
+    if (after?.finalVersion?.pdfFileId !== stored.id) {
+      await binAttempt(setup, article.folderId, attemptKey, stored.id)
+    }
     throw error
   }
   if (outcome.kind === 'done') return outcome
@@ -160,7 +164,10 @@ async function cancel(
       input.markedAt,
       input.owner,
     )
-  } catch {
+  } catch (error) {
+    /* Rolled back with the transaction: the marking stands whole and the toast says to try
+       again. Logged, so a cancel that keeps failing is seen. */
+    console.error(`[final-version] the cancel of article ${input.id} was not written:`, error)
     return { kind: 'unavailable' }
   }
   if (outcome.kind !== 'done') return { kind: 'refused', refusal: outcome }
