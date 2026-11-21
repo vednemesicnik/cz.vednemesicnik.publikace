@@ -38,8 +38,8 @@ export type AccessDecision =
       email: string
       /**
        * Every answer the roles rest on came back. When one did not, the role it would have given
-       * is off for now and the decision is not to be remembered (`03`, _nedostupná služba
-       * zamítne_), so the next request asks again.
+       * is off for now (`03`, _nedostupná služba zamítne_) and the decision is kept for a minute
+       * instead of ten (`UNSETTLED_RETRY_MS`).
        */
       isSettled: boolean
       roles: Roles

@@ -37,7 +37,7 @@ const AccessLoss = createContextKey<AccessRefusal | null>(null)
 
 /**
  * Resolves the person from the session, asking about access again once the last answer is ten
- * minutes old, or at once when it rested on a service that did not reply.
+ * minutes old, or one minute when it rested on a service that did not reply.
  *
  * - **No** (`notlisted`, `domain`): the identity leaves the session, and the address stays for
  *   the sign-in page's sentence.
