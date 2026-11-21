@@ -203,6 +203,8 @@ describe('the page Korektura (15a, 15b, 15e)', () => {
   it('sends a link from the digest to its card, and says why an article of a closed issue is not here', async () => {
     let { app, articleId, issueId, proofreader } = await newsroom()
     try {
+      let never = await seedArticle(app, issueId, 'Nikdy nepředaný')
+      await createArticleStore(app.database).handOver(articleId, MARIE, Temporal.Now.instant())
       let linked = await proofreader.get(`${PAGE}?article=${articleId}`)
       assert.equal(linked.status, 303)
       assert.equal(linked.headers.get('Location'), `${PAGE}#article-${articleId}`)
@@ -212,6 +214,11 @@ describe('the page Korektura (15a, 15b, 15e)', () => {
       )
       let closed = textOf(await (await proofreader.get(`${PAGE}?article=${articleId}`)).text())
       assert.ok(closed.includes('„Kavárna v knihovně“ Vydání VDM_2026_6 je uzavřené.'))
+      /* Only a handed-over article was ever in a digest: an ID tried by hand learns nothing. */
+      let guessed = textOf(
+        await (await proofreader.get(`${PAGE}?article=${never.articleId}`)).text(),
+      )
+      assert.ok(!guessed.includes('Nikdy nepředaný'))
       assert.ok(textOf(await (await proofreader.get(PAGE)).text()).includes('Nic ke korektuře'))
     } finally {
       await app.close()

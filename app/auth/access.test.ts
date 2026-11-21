@@ -245,4 +245,30 @@ describe('decideAccess', () => {
       await app.close()
     }
   })
+
+  it('settles a proofreader’s decision beside a listed group the service does not know', async () => {
+    let app = await createTestApp()
+    try {
+      await app.directory.seedInitialAdmin('marie@vednemesicnik.test', now())
+      await app.directory.addGroup(
+        'marie@vednemesicnik.test',
+        'vybor@vednemesicnik.test',
+        null,
+        now(),
+      )
+      let decision = await decideAccess(profile('lenka@vednemesicnik.test'), {
+        checkMembership: async (_email, group) =>
+          group === PROOFREADERS
+            ? { displayName: null, groupName: null, status: 'member' }
+            : { status: 'unknown-group' },
+        directory: app.directory,
+        domain: TEST_DOMAIN,
+        proofreadersAddress: async () => PROOFREADERS,
+      })
+
+      assert.deepEqual(decision.allowed && decision.isSettled, true)
+    } finally {
+      await app.close()
+    }
+  })
 })

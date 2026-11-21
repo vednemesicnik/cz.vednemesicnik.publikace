@@ -134,7 +134,8 @@ export type ArticleStore = {
   findById(id: number): Promise<ArticleRow | null>
   /**
    * A created article for a link from the morning digest (`15e`): its name and its issue, open or
-   * closed, so that the page can say why the article is not on it.
+   * closed, so that the page can say why the article is not on it. Only one that was handed over,
+   * as only those were ever in a digest: an ID tried by hand learns nothing of the closed issues.
    */
   findForQueue(
     id: number,
@@ -438,7 +439,8 @@ export function createArticleStore(database: Database): ArticleStore {
       let result = await database.exec(
         sql`SELECT articles.name, issues.name AS issue_name, issues.closed_at FROM articles
             JOIN issues ON issues.id = articles.issue_id
-            WHERE articles.id = ${id} AND articles.created_at IS NOT NULL`,
+            WHERE articles.id = ${id} AND articles.created_at IS NOT NULL
+              AND articles.handed_over_at IS NOT NULL`,
       )
       let row = result.rows?.[0]
       if (row === undefined) return null

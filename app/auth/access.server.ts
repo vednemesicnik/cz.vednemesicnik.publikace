@@ -102,7 +102,12 @@ export async function decideAccess(
 
   let groupMember = groupAnswers.find((answer) => answer.status === 'member')
   let isEditor = account !== null || groupMember !== undefined
+  /* A group the service does not know refuses as a "don't know" (`10a`), as it always has, but it
+     does not keep the decision from settling: it will not answer otherwise in a minute, and a
+     proofreader let in meanwhile would be asked about every group on every request. */
   let isEditorUnknown = !isEditor && groupAnswers.some((answer) => answer.status !== 'not-member')
+  let isEditorUnanswered =
+    !isEditor && groupAnswers.some((answer) => answer.status === 'unavailable')
 
   let isProofreader = proofreaders === email || proofreaderAnswer?.status === 'member'
   let isProofreaderUnknown = proofreaderAnswer?.status === 'unavailable'
@@ -122,7 +127,7 @@ export async function decideAccess(
     allowed: true,
     displayName,
     email,
-    isSettled: !isEditorUnknown && !isProofreaderUnknown,
+    isSettled: !isEditorUnanswered && !isProofreaderUnknown,
     roles: { isEditor, isProofreader },
   }
 }

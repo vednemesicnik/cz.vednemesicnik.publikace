@@ -40,7 +40,11 @@ import {
  * What the helpers below read. Every action's context has it; it is written loosely because the
  * actions' contexts differ in their params, and the three values are read back by their keys.
  */
-type PageContext = { get(key: unknown): unknown; render: AppContext['render'] }
+type PageContext = {
+  get(key: unknown): unknown
+  method: string
+  render: AppContext['render']
+}
 
 function accessOf(context: PageContext): AccessContext {
   return context.get(Access) as AccessContext
@@ -74,8 +78,10 @@ async function renderSettings(
   let today = now()
   /* Asked on every visit, as when a group is added to Přístup (`03`, row 27): the warning stands
      while the service does not know the address and goes by itself once it does. A service that
-     does not answer shows nothing, since it says nothing about the address. */
+     does not answer shows nothing, since it says nothing about the address. Not for a form drawn
+     again, which should not wait on the service for a warning beside the point. */
   let isProofreadersUnknownGroup =
+    context.method === 'GET' &&
     proofreadersAddress !== null &&
     (await access.checkMembership(editor.email, proofreadersAddress.email)).status ===
       'unknown-group'

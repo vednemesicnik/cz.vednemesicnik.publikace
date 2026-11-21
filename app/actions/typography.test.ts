@@ -110,10 +110,15 @@ describe('one-letter words on the screens', () => {
       /* A proofreader's page with a card in every part, and the refusal of an editors' screen
          (`15a`, `10d`). */
       let proofreader = app.browser()
-      await proofreader.signInAs(MARIE.replace('marie', 'lenka'), 'Lenka Svobodová', undefined, {
-        isEditor: false,
-        isProofreader: true,
-      })
+      await proofreader.signInAs(
+        'lenka.svobodova@vednemesicnik.test',
+        'Lenka Svobodová',
+        undefined,
+        {
+          isEditor: false,
+          isProofreader: true,
+        },
+      )
       pages['proofreading'] = await (await proofreader.get('/proofreading')).text()
       pages['editors only'] = await (await proofreader.get('/review')).text()
       assert.ok(readableText(pages['proofreading'] ?? '').includes(SEEDED_ARTICLE))

@@ -570,6 +570,7 @@ describe('taking proofreading', () => {
       let articles = createArticleStore(app.database)
       let issueId = await seedIssue(app)
       let { articleId } = await seedArticle(app, issueId)
+      await articles.handOver(articleId, MARIE, AT)
       await articles.takeProofreading(articleId, JAKUB, AT, 'writing')
       await app.database.exec(
         sql`UPDATE issues SET closed_at = ${LATER.toString()} WHERE id = ${issueId}`,
