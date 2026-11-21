@@ -36,12 +36,13 @@ Nothing here is real data in the repository: the IDs, the URLs and the testers' 
       accepts whoever may edit.
 
 **The article template**, which is not on the shared drive. On a shared drive every member who can
-write may change or bin it, its bound script included. It lives in `publikace.app@`'s own
-_Můj disk → Šablony_, where only that account edits it and the app copies it as its owner:
+write may change or bin it, its bound script included. `TEMPLATE__Publication__Article` lives in
+`publikace.app@`'s own _Můj disk → Templates_, where only that account edits it and the app copies
+it as its owner. Its bound project is `SCRIPT__Publication__Article_Menu`:
 
 - [ ] a copy of the template, made as `publikace.app@` with _Vytvořit kopii_ in Drive so that it
       carries its bound script. Drive says so on the copy page. Its body still contains
-      `{{NAZEV_CLANKU}}`, its menu bar shows _✦ Publikace_, and its ID is
+      `{{NAZEV_CLANKU}}`, its menu bar shows _Publikace_, and its ID is
       `ARTICLE_TEMPLATE_DOCUMENT_ID`.
 
 **The Mailer of `publikace@`** (`SCRIPT__Mail__Send`), its existing deployment and not a new
