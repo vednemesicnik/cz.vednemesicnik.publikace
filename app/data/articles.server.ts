@@ -283,15 +283,6 @@ export type ArticleStore = {
     takenAt: Temporal.Instant
   }): Promise<FinalVersionOutcome>
   /**
-   * Whether the marking made at `markedAt` may be cancelled (`15g`), read before its PDF goes to
-   * the bin: `null` when it may. `owner` limits it to the marking of that account's take.
-   */
-  checkCancelFinal(
-    id: number,
-    markedAt: Temporal.Instant,
-    owner?: string,
-  ): Promise<Exclude<CancelFinalOutcome, { kind: 'done' }> | null>
-  /**
    * _Zrušit finální verzi_ of the marking made at `markedAt`, while no run has taken a clause:
    * its clauses go, the article is _Korektura_ of the same take again.
    */
@@ -925,10 +916,6 @@ export function createArticleStore(database: Database): ArticleStore {
       })
     },
 
-    checkCancelFinal(id, markedAt, owner) {
-      return cancelFinalRefusalOf(database, id, markedAt, owner)
-    },
-
     cancelFinalVersion(id, at, markedAt, owner) {
       return database.transaction(async (db) => {
         let refusal = await cancelFinalRefusalOf(db, id, markedAt, owner)
@@ -993,8 +980,8 @@ export function createArticleStore(database: Database): ArticleStore {
 
     recordSending(runKey, key, outcome, at) {
       return database.transaction(async (db) => {
-        /* Reported, so the lease ends; the key stays for a repeat of the same report. A clause
-           already sent stays sent: a repeated report cannot turn it into a failure. */
+        /* Reported, so the lease ends. A clause already sent stays sent: a clause reported twice
+           in one report cannot turn it into a failure. */
         let result =
           outcome.kind === 'sent'
             ? await db.exec(

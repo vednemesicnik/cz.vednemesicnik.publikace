@@ -162,6 +162,22 @@ describe('the final version (15f, 15g)', () => {
     }
   })
 
+  it('cancels in the record even when Drive does not take the PDF to the bin', async () => {
+    let { app, articleId, proofreader } = await newsroom()
+    try {
+      await mark(proofreader, articleId)
+      let undo = toastAction(await (await proofreader.get(PAGE)).text())
+      assert.ok(undo !== null)
+      app.drive.failStep('trash')
+      await proofreader.post(undo, {}, PAGE)
+      let page = await (await proofreader.get(PAGE)).text()
+      assert.equal(statusText(page), 'Článek je zpět v korektuře.')
+      assert.equal((await createArticleStore(app.database).findById(articleId))?.finalVersion, null)
+    } finally {
+      await app.close()
+    }
+  })
+
   it('cannot be cancelled once a run of the job took a clause, and leaves the queue then', async () => {
     let { app, articleId, proofreader } = await newsroom()
     try {

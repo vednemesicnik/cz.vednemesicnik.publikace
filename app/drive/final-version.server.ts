@@ -93,14 +93,21 @@ async function mark(
     return { kind: 'unavailable' }
   }
 
-  let outcome = await setup.articles.markFinalVersion({
-    at: setup.now(),
-    by: input.by,
-    id: input.id,
-    owner: input.owner,
-    pdf: { attemptKey, fileId: stored.id, hash },
-    takenAt: input.takenAt,
-  })
+  /* A record that refuses or throws leaves no PDF behind it: all or nothing (`11c`). */
+  let outcome: FinalVersionOutcome
+  try {
+    outcome = await setup.articles.markFinalVersion({
+      at: setup.now(),
+      by: input.by,
+      id: input.id,
+      owner: input.owner,
+      pdf: { attemptKey, fileId: stored.id, hash },
+      takenAt: input.takenAt,
+    })
+  } catch (error) {
+    await binAttempt(setup, article.folderId, attemptKey, stored.id)
+    throw error
+  }
   if (outcome.kind === 'done') return outcome
   await binAttempt(setup, article.folderId, attemptKey, stored.id)
   return { kind: 'refused', refusal: outcome }
@@ -128,10 +135,11 @@ async function binAttempt(
 }
 
 /**
- * _Zrušit finální verzi_ (`15g`): the PDF to the bin first, then the record, so a cancel Drive
- * stops leaves the marking whole and the toast says to try again. When the record refuses after
- * all, because a run took a clause in between, the PDF comes back out of the bin, as a discard
- * Drive stopped does (`12o`).
+ * _Zrušit finální verzi_ (`15g`): the record first, then the PDF to the bin. The record is what
+ * decides against a run of the job taking a clause at the same moment; binning first would hand
+ * that run a PDF in the bin, and if Drive then did not take it back out, the only copy of the
+ * version the authors are asked about would be lost with the bin. A PDF that does not reach the
+ * bin after the record is cancelled is only a file nothing points to, and is logged.
  */
 export function cancelFinalVersion(
   setup: FinalVersionSetup,
@@ -144,26 +152,23 @@ async function cancel(
   setup: FinalVersionSetup,
   input: Parameters<typeof cancelFinalVersion>[1],
 ): Promise<CancelFinalStepOutcome> {
-  let refusal = await setup.articles.checkCancelFinal(input.id, input.markedAt, input.owner)
-  if (refusal !== null) return { kind: 'refused', refusal }
-  let article = await setup.articles.findById(input.id)
-  let pdfFileId = article?.finalVersion?.pdfFileId ?? null
-  if (pdfFileId === null) return { kind: 'refused', refusal: { kind: 'not-final' } }
+  let outcome: CancelFinalOutcome
+  try {
+    outcome = await setup.articles.cancelFinalVersion(
+      input.id,
+      setup.now(),
+      input.markedAt,
+      input.owner,
+    )
+  } catch {
+    return { kind: 'unavailable' }
+  }
+  if (outcome.kind !== 'done') return { kind: 'refused', refusal: outcome }
 
   let token = await setup.token()
-  if (!token.ok) return { kind: 'unavailable' }
-  let files = setup.files(token.accessToken)
-  if (!(await files.trash(pdfFileId))) return { kind: 'unavailable' }
-
-  let outcome = await setup.articles.cancelFinalVersion(
-    input.id,
-    setup.now(),
-    input.markedAt,
-    input.owner,
-  )
-  if (outcome.kind === 'done') return { kind: 'done' }
-  if (!(await files.restore(pdfFileId))) {
-    logDriveFailure('a final version PDF was not taken back out of the bin', pdfFileId)
+  let isBinned = token.ok && (await setup.files(token.accessToken).trash(outcome.pdfFileId))
+  if (!isBinned) {
+    logDriveFailure('a cancelled final version PDF was not moved to the bin', outcome.pdfFileId)
   }
-  return { kind: 'refused', refusal: outcome }
+  return { kind: 'done' }
 }
