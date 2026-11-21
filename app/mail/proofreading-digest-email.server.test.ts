@@ -38,6 +38,7 @@ function textOf(html: string): string {
 describe('the proofreaders’ morning digest (12n)', () => {
   let message = digestEmail({
     digest: DIGEST,
+    lastSentAt: null,
     origin: 'https://publikace.vednemesicnik.test',
     to: 'korektori@vednemesicnik.test',
     today: TODAY,
@@ -77,10 +78,16 @@ describe('the proofreaders’ morning digest (12n)', () => {
   })
 
   it('keeps its idempotency key while its content stays, and changes it with the content', () => {
-    assert.equal(message.idempotencyKey, digestIdempotencyKey({ ...DIGEST }))
+    let to = 'korektori@vednemesicnik.test'
+    assert.equal(message.idempotencyKey, digestIdempotencyKey({ ...DIGEST }, to, null))
     assert.notEqual(
       message.idempotencyKey,
-      digestIdempotencyKey({ ...DIGEST, waiting: [article(3, { announcedAt: TODAY })] }),
+      digestIdempotencyKey({ ...DIGEST, waiting: [article(3, { announcedAt: TODAY })] }, to, null),
     )
+    assert.notEqual(
+      message.idempotencyKey,
+      digestIdempotencyKey(DIGEST, 'jini@vednemesicnik.test', null),
+    )
+    assert.notEqual(message.idempotencyKey, digestIdempotencyKey(DIGEST, to, TODAY))
   })
 })

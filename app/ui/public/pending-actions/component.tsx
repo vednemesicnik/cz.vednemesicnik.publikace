@@ -56,7 +56,7 @@ export const PendingActions = clientEntry(
             </a>
           )}
           <button
-            aria-label={accessibleLabel}
+            aria-label={isPending ? undefined : accessibleLabel}
             class={`vdm-btn vdm-btn--${emphasis} vdm-btn--sm`}
             disabled={isPending}
             mix={ref((node, signal) => {

@@ -72,7 +72,7 @@ export type HandoverOutcome =
 export type { DigestCandidate }
 
 export type AnnouncedDigest = {
-  cancelled: readonly { cancelledAt: Temporal.Instant; id: number }[]
+  cancelled: readonly { handedOverAt: Temporal.Instant; id: number }[]
   handedOver: readonly { handedOverAt: Temporal.Instant; id: number }[]
 }
 
@@ -427,11 +427,13 @@ export function createArticleStore(database: Database): ArticleStore {
 
     markAnnounced(digest, at) {
       return database.transaction(async (db) => {
+        /* Each mark is keyed on the handover the digest spoke of, not on whether it is cancelled
+           now: a cancellation or a _Vrátit_ made while the Mailer was sending must still be told
+           in the next digest. A newer handover changes `handed_over_at`, so no mark touches it. */
         for (let item of digest.handedOver) {
           await db.exec(
             sql`UPDATE articles SET handover_announced_at = ${stamp(at)}
-                WHERE id = ${item.id} AND handed_over_at = ${stamp(item.handedOverAt)}
-                  AND handover_cancelled_at IS NULL`,
+                WHERE id = ${item.id} AND handed_over_at = ${stamp(item.handedOverAt)}`,
           )
         }
         /* The proofreaders now know the cancelled handover is not theirs: nothing is left to
@@ -439,7 +441,7 @@ export function createArticleStore(database: Database): ArticleStore {
         for (let item of digest.cancelled) {
           await db.exec(
             sql`UPDATE articles SET handover_announced_at = NULL
-                WHERE id = ${item.id} AND handover_cancelled_at = ${stamp(item.cancelledAt)}`,
+                WHERE id = ${item.id} AND handed_over_at = ${stamp(item.handedOverAt)}`,
           )
         }
       })

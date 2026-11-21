@@ -393,6 +393,46 @@ describe('the handover to proofreading', () => {
     }
   })
 
+  it('still tells a cancellation or a restore made while the digest was being sent', async () => {
+    let app = await createTestApp()
+    try {
+      let articles = createArticleStore(app.database)
+      let issueId = await seedIssue(app)
+      let cancelled = await seedArticle(app, issueId, 'Zrušený během odeslání')
+      let restored = await seedArticle(app, issueId, 'Vrácený během odeslání')
+      await articles.handOver(cancelled.articleId, MARIE, AT)
+      await articles.handOver(restored.articleId, MARIE, AT)
+      await articles.markAnnounced(
+        { cancelled: [], handedOver: [{ handedOverAt: AT, id: restored.articleId }] },
+        AT,
+      )
+      let cancelledAt = AT.add({ minutes: 1 })
+      await articles.cancelHandover(restored.articleId, cancelledAt)
+
+      /* The digest says the first is new and the second cancelled; meanwhile each changes. */
+      await articles.cancelHandover(cancelled.articleId, LATER)
+      await articles.restoreHandover(restored.articleId, cancelledAt)
+      await articles.markAnnounced(
+        {
+          cancelled: [{ handedOverAt: AT, id: restored.articleId }],
+          handedOver: [{ handedOverAt: AT, id: cancelled.articleId }],
+        },
+        LATER,
+      )
+
+      let listed = await articles.listForDigest()
+      assert.deepEqual(
+        listed.map((each) => [each.name, each.announcedAt, each.cancelledAt]),
+        [
+          ['Zrušený během odeslání', LATER, LATER],
+          ['Vrácený během odeslání', null, null],
+        ],
+      )
+    } finally {
+      await app.close()
+    }
+  })
+
   it('marks as told only what did not change since the digest was made', async () => {
     let app = await createTestApp()
     try {

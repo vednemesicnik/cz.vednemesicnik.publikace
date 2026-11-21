@@ -94,6 +94,36 @@ describe('handing an article over to proofreading (12k, 12l)', () => {
     }
   })
 
+  it('keeps a row where it stood after the step, and after its Vrátit', async () => {
+    let { app, articleId, browser } = await newsroom()
+    try {
+      let issueId = (await createArticleStore(app.database).findById(articleId))?.issueId ?? 0
+      await seedArticle(app, issueId, 'Zahrada na střeše')
+      await seedArticle(app, issueId, 'Volební kampaň')
+      let order = async () => {
+        let html = await (await browser.get(DETAIL)).text()
+        return [...html.matchAll(/(Kavárna v knihovně|Zahrada na střeše|Volební kampaň)/g)]
+          .map((match) => match[1])
+          .filter((name, index, all) => all.indexOf(name) === index)
+      }
+      let before = await order()
+
+      await browser.post(handOverPath(articleId), {}, DETAIL)
+      let html = await (await browser.get(DETAIL)).text()
+      let undo = undoAction(html)
+      assert.deepEqual(
+        [...html.matchAll(/(Kavárna v knihovně|Zahrada na střeše|Volební kampaň)/g)]
+          .map((match) => match[1])
+          .filter((name, index, all) => all.indexOf(name) === index),
+        before,
+      )
+      await browser.post(undo ?? '', {}, DETAIL)
+      assert.deepEqual(await order(), before)
+    } finally {
+      await app.close()
+    }
+  })
+
   it('cancels a handover, and Vrátit brings back the very one, its time included', async () => {
     let { app, articleId, browser } = await newsroom()
     try {

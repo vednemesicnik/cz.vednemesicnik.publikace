@@ -115,8 +115,10 @@ export default function createJobsController(
           }
         }
         /* The digest that had nowhere to go: a warning until the address is saved, not until the
-           next run, because saving it is what mends it (`14e`). */
+           next run, because saving it is what mends it (`14e`). A job that stopped reporting
+           keeps its _Neběží_, which the banner sent the editors here for. */
         if (
+          stopped === null &&
           job.key === PROOFREADING_DIGEST_JOB &&
           readDigestRun(latest?.summary ?? null)?.kind === 'no-address' &&
           (await dependencies.proofreaders.find()) === null

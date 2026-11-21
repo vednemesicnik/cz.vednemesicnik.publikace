@@ -103,10 +103,10 @@ async function renderSettings(
  * A change sent by somebody who is not an administrator — by the time it arrived. `14b`: the
  * page comes back read-only with the Callout that says why, and nothing changed.
  */
-function roleLost(context: PageContext, runs: Stores, editor: Editor): Promise<Response> {
+function roleLost(context: PageContext, stores: Stores, editor: Editor): Promise<Response> {
   return renderSettings(
     context,
-    runs,
+    stores,
     { ...editor, isAdmin: false },
     { isRoleLost: true },
     { status: 403 },
@@ -133,17 +133,17 @@ export default function createSettingsController(
   signedInUntil: SignedInUntilCookie,
   dependencies: SettingsDependencies,
 ) {
-  let runs = dependencies
+  let stores = dependencies
   return createController(routes.settings, {
     middleware: [requireEditor(signedInUntil)],
     actions: {
       index(context) {
-        return renderSettings(context, runs, context.auth.identity, {})
+        return renderSettings(context, stores, context.auth.identity, {})
       },
 
       async addAccess(context) {
         let editor = context.auth.identity
-        if (!editor.isAdmin) return roleLost(context, runs, editor)
+        if (!editor.isAdmin) return roleLost(context, stores, editor)
 
         let { checkMembership, directory, domain } = context.get(Access)
         let kind: AccessKind = formText(context, 'kind') === 'group' ? 'group' : 'account'
@@ -152,7 +152,7 @@ export default function createSettingsController(
         let refuse = (error: string) =>
           renderSettings(
             context,
-            runs,
+            stores,
             editor,
             { addForm: { error, kind, value } },
             { status: 400 },
@@ -179,7 +179,7 @@ export default function createSettingsController(
             : await directory.addGroup(editor.email, address.email, groupName, now())
 
         if (!result.ok) {
-          if (result.reason === 'not-admin') return roleLost(context, runs, editor)
+          if (result.reason === 'not-admin') return roleLost(context, stores, editor)
           return refuse(duplicateMessage(kind, address.email))
         }
 
@@ -196,7 +196,7 @@ export default function createSettingsController(
           .get(Access)
           .directory.setAdmin(editor.email, id, formText(context, 'isAdmin') === '1')
 
-        if (!result.ok && result.reason === 'not-admin') return roleLost(context, runs, editor)
+        if (!result.ok && result.reason === 'not-admin') return roleLost(context, stores, editor)
         // The badge and the menu show the outcome; a refused self or last administrator is the
         // data layer's safeguard and has no message of its own (`14a`).
         return backToSettings()
@@ -219,7 +219,7 @@ export default function createSettingsController(
           return backToSettings()
         }
 
-        return renderSettings(context, runs, editor, { question: { account, kind: 'account' } })
+        return renderSettings(context, stores, editor, { question: { account, kind: 'account' } })
       },
 
       async removeAccount(context) {
@@ -228,7 +228,7 @@ export default function createSettingsController(
         if (id === null) return backToSettings()
 
         let result = await context.get(Access).directory.removeAccount(editor.email, id)
-        if (!result.ok && result.reason === 'not-admin') return roleLost(context, runs, editor)
+        if (!result.ok && result.reason === 'not-admin') return roleLost(context, stores, editor)
         return backToSettings()
       },
 
@@ -241,7 +241,7 @@ export default function createSettingsController(
         let group = groups.find((candidate) => candidate.id === id)
         if (group === undefined) return backToSettings()
 
-        return renderSettings(context, runs, editor, { question: { group, kind: 'group' } })
+        return renderSettings(context, stores, editor, { question: { group, kind: 'group' } })
       },
 
       /* `14f`: the dialog over Nastavení. Only an administrator changes the address, since it
@@ -250,20 +250,20 @@ export default function createSettingsController(
         let editor = context.auth.identity
         if (!editor.isAdmin) return backToSettings()
         let current = await dependencies.proofreaders.find()
-        return renderSettings(context, runs, editor, {
+        return renderSettings(context, stores, editor, {
           proofreadersForm: { error: null, value: current?.email ?? '' },
         })
       },
 
       async saveProofreaders(context) {
         let editor = context.auth.identity
-        if (!editor.isAdmin) return roleLost(context, runs, editor)
+        if (!editor.isAdmin) return roleLost(context, stores, editor)
         let value = formText(context, 'email')
         let address = checkProofreadersAddress(value, context.get(Access).domain)
         if (!address.ok) {
           return renderSettings(
             context,
-            runs,
+            stores,
             editor,
             { proofreadersForm: { error: address.message, value } },
             { status: 400 },
@@ -280,7 +280,7 @@ export default function createSettingsController(
         if (id === null) return backToSettings()
 
         let result = await context.get(Access).directory.removeGroup(editor.email, id)
-        if (!result.ok && result.reason === 'not-admin') return roleLost(context, runs, editor)
+        if (!result.ok && result.reason === 'not-admin') return roleLost(context, stores, editor)
         return backToSettings()
       },
     },

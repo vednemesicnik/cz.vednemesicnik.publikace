@@ -651,9 +651,10 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
         }
         switch (outcome.kind) {
           case 'done':
-            flashSettled(context, { at: null, id: article.id, state: 'writing' })
-            /* _Vrátit_ answers with the row itself, as it does in `13b`. */
+            /* _Vrátit_ answers with the row itself, as it does in `13b`, and leaves it where it
+               stands: after an undo its own state already puts it there. */
             if (undo === null) {
+              flashSettled(context, { at: null, id: article.id, state: 'writing' })
               flashToast(context, HANDED_OVER_TOAST, 'neutral', {
                 action: `${routes.issues.cancelHandover.href({ id: String(article.id), name: issue.name })}?undo=${encodeURIComponent(stamp(outcome.at))}`,
                 label: UNDO_LABEL,
@@ -701,9 +702,9 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
         }
         switch (outcome.kind) {
           case 'done': {
-            let at = article.handover === null ? null : stamp(article.handover.at)
-            flashSettled(context, { at, id: article.id, state: 'handedOver' })
             if (undo === null) {
+              let at = article.handover === null ? null : stamp(article.handover.at)
+              flashSettled(context, { at, id: article.id, state: 'handedOver' })
               flashToast(context, HANDOVER_CANCELLED_TOAST, 'neutral', {
                 action: `${routes.issues.handOver.href({ id: String(article.id), name: issue.name })}?undo=${encodeURIComponent(stamp(outcome.at))}`,
                 label: UNDO_LABEL,

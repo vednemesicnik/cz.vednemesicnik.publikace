@@ -9,6 +9,7 @@ import {
   digestOf,
   digestOutcome,
   PROOFREADING_DIGEST_JOB,
+  readDigestRun,
   writeDigestRun,
 } from '../../../domain/proofreading-digest.ts'
 import type { Lock } from '../../../drive/one-at-a-time.server.ts'
@@ -47,6 +48,10 @@ export type ProofreadingDigestDependencies = {
   runs: JobRunStore
   verifyIdentityToken: IdentityTokenVerifier
 }
+
+/* A run a day and a few by hand: a confirmed digest is found well within this many runs, and one
+   older than that is far past the Mailer's six hours of remembered keys. */
+const RUNS_FOR_LAST_SENT = 100
 
 /* A trigger fires at most once a minute and at least once a day. */
 const MAX_INTERVAL_MINUTES = 24 * 60
@@ -100,6 +105,15 @@ export default function createProofreadingDigestController(
     return null
   }
 
+  /**
+   * When the last digest the Mailer confirmed was started: it changes with every confirmed send
+   * and stays across the retries of one that was not, which is what the idempotency key needs.
+   */
+  async function lastSentAt(): Promise<Temporal.Instant | null> {
+    let runs = await dependencies.runs.latestRuns(PROOFREADING_DIGEST_JOB, RUNS_FOR_LAST_SENT)
+    return runs.find((run) => readDigestRun(run.summary)?.kind === 'sent')?.startedAt ?? null
+  }
+
   /** Builds and sends the digest, and says how it went; nothing is recorded as told before. */
   async function send(): Promise<{ error: string | null; run: DigestRun }> {
     let digest = digestOf(await dependencies.articles.listForDigest())
@@ -109,15 +123,22 @@ export default function createProofreadingDigestController(
 
     let today = dependencies.now()
     let result = await dependencies.mailer(
-      digestEmail({ digest, origin: dependencies.origin, to: address.email, today }),
+      digestEmail({
+        digest,
+        lastSentAt: await lastSentAt(),
+        origin: dependencies.origin,
+        to: address.email,
+        today,
+      }),
     )
     if (!result.ok) return { error: result.error, run: { kind: 'unconfirmed' } }
 
     await dependencies.articles.markAnnounced(
       {
-        cancelled: digest.cancelled.flatMap((each) =>
-          each.cancelledAt === null ? [] : [{ cancelledAt: each.cancelledAt, id: each.id }],
-        ),
+        cancelled: digest.cancelled.map((each) => ({
+          handedOverAt: each.handedOverAt,
+          id: each.id,
+        })),
         handedOver: digest.handedOver.map((each) => ({
           handedOverAt: each.handedOverAt,
           id: each.id,

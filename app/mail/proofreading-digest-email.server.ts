@@ -28,6 +28,8 @@ import { WELCOME_QUESTION_LINE } from './welcome-email.server.ts'
 
 export type DigestDetails = {
   digest: Digest
+  /** When the last confirmed digest started, for the idempotency key; `null` before the first. */
+  lastSentAt: Temporal.Instant | null
   /** `APP_ORIGIN`, which the links lead to. */
   origin: string
   to: string
@@ -63,12 +65,20 @@ export function articleCardUrl(origin: string, articleId: number): string {
 }
 
 /**
- * The Mailer's idempotency key: the same parts with the same articles at the same times give the
- * same key, so a run retried after a timeout that did send mails nobody twice, while a digest
- * whose content changed is a new one.
+ * The Mailer's idempotency key: the same parts with the same articles at the same times, to the
+ * same address and after the same confirmed digest, give the same key, so a run retried after a
+ * timeout that did send mails nobody twice. A digest whose content changed is a new one, and so is
+ * one after another confirmed send: an article cancelled and then restored with its old time
+ * reads as before, and the Mailer, which remembers a key for six hours, would send it nowhere.
  */
-export function digestIdempotencyKey(digest: Digest): string {
+export function digestIdempotencyKey(
+  digest: Digest,
+  to: string,
+  lastSentAt: Temporal.Instant | null,
+): string {
   let lines = [
+    `to:${to}`,
+    `after:${lastSentAt?.toString() ?? 'none'}`,
     ...digest.handedOver.map((each) => `new:${each.id}:${each.handedOverAt.toString()}`),
     ...digest.cancelled.map((each) => `cancelled:${each.id}:${each.cancelledAt?.toString()}`),
     ...digest.waiting.map((each) => `waiting:${each.id}:${each.handedOverAt.toString()}`),
@@ -143,7 +153,7 @@ export function digestEmail(details: DigestDetails): MailMessage {
 
   return {
     htmlBody: htmlDocument(subject, body),
-    idempotencyKey: digestIdempotencyKey(digest),
+    idempotencyKey: digestIdempotencyKey(digest, details.to, details.lastSentAt),
     name: SENDER_NAME,
     subject,
     to: details.to,
