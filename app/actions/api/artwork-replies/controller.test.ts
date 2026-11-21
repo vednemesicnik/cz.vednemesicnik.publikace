@@ -7,8 +7,8 @@ import { createArtworkStore } from '../../../data/artworks.server.ts'
 import { batchState } from '../../../domain/artwork.ts'
 import {
   createTestApp,
-  fakeIdentityToken,
   EXPIRED_IDENTITY_TOKEN,
+  fakeIdentityToken,
   JOB_TOKEN,
   seedArticle,
   seedBatch,
