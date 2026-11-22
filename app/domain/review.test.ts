@@ -23,10 +23,10 @@ describe('the filter of kinds', () => {
     assert.equal(reviewKindOf('batches'), 'all')
   })
 
-  it('counts the replies Vše would show, with the number’s form', () => {
-    assert.equal(otherKindText(1), 'Filtr Vše ukáže 1 odpověď.')
-    assert.equal(otherKindText(3), 'Filtr Vše ukáže 3 odpovědi.')
-    assert.equal(otherKindText(5), 'Filtr Vše ukáže 5 odpovědí.')
+  it('counts the items Vše would show, with the number’s form', () => {
+    assert.equal(otherKindText(1), 'Filtr Vše ukáže 1 položku.')
+    assert.equal(otherKindText(3), 'Filtr Vše ukáže 3 položky.')
+    assert.equal(otherKindText(5), 'Filtr Vše ukáže 5 položek.')
   })
 })
 

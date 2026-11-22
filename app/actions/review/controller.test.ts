@@ -412,7 +412,7 @@ describe('Ke kontrole narrowed to one kind', () => {
       await replyTo(app, batch, 'ok, souhlas')
       await articleReply(app, article.articleId, 'Souhlasím, jen prosím jiný podpis.')
       let all = await (await browser.get('/review')).text()
-      assert.match(all, /<nav aria-label="Druh" class="vdm-statefilter">/)
+      assert.match(all, /<nav aria-label="Druh položky" class="vdm-statefilter">/)
       assert.match(all, /aria-current="true"[^>]*href="\/review"[^>]*>Vše<span[^>]*>2<\/span>/)
       assert.match(all, /href="\/review\?kind=articles"[^>]*>Články<span[^>]*>1<\/span>/)
       assert.match(all, /href="\/review\?kind=artworks"[^>]*>Obrazová díla<span[^>]*>1<\/span>/)
@@ -503,8 +503,8 @@ describe('Ke kontrole narrowed to one kind', () => {
 
       await replyTo(app, batch, 'ok, souhlas')
       let html = await (await browser.get('/review?kind=articles')).text()
-      assert.match(html, /Žádný článek ke kontrole/)
-      assert.match(html, /Filtr Vše ukáže 1 odpověď\./)
+      assert.match(html, /U článků tu nic není/)
+      assert.match(html, /Filtr Vše ukáže 1 položku\./)
       assert.match(html, /href="\/review" class="vdm-btn[^"]*">Zobrazit vše</)
       assert.doesNotMatch(html, /Obrazová díla · 2 díla/)
     } finally {
