@@ -365,7 +365,8 @@ const linkBodyStyle = css({
 const linkLabelStyle = css({ fontSize: '15px', fontWeight: 600 })
 
 /* The Doc's title takes most of what is left and the artworks the rest; the tag and the actions
-   keep their width, _Předat ke korektuře_ and `⋯` together 216 px (`12a`, `12k`). */
+   keep their width, the longest button, _Označit novou verzi…_, and `⋯` together 240 px
+   (`12a`, `12k`, `12q`). */
 const ARTICLE_COLUMNS = 'minmax(180px, 3fr) 160px minmax(110px, 1fr) 240px'
 
 /* A row without the button has only `⋯`, at the far end (`12k`). */

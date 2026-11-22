@@ -814,11 +814,6 @@ async function standingFinalVersions(
 }
 
 /**
- * The clauses that wait on the editors-in-chief, as `clauseState` reads them: an e-mail the Mailer
- * did not confirm with no reply since (`unsent`), a reply in _Ke kontrole_ (`review`) and a
- * failed archive (`unarchived`). Written out for SQL; the tests hold it to `clauseState`.
- */
-/**
  * An earlier clause `p` whose author gave consent, as `clauseState` reads _Souhlas udělen_,
  * _Souhlas k archivaci_ and a consent whose archive failed (#101).
  */
@@ -828,6 +823,11 @@ const GAVE_CONSENT_P = sql`(p.approved_at IS NOT NULL OR (p.state != 'pending' A
         AND (p.consent_verified_at IS NOT NULL OR p.is_exact_consent = 1))
   )))`
 
+/**
+ * The clauses that wait on the editors-in-chief, as `clauseState` reads them: an e-mail the Mailer
+ * did not confirm with no reply since (`unsent`), a reply in _Ke kontrole_ (`review`) and a
+ * failed archive (`unarchived`). Written out for SQL; the tests hold it to `clauseState`.
+ */
 const WAITS_ON_EDITORS = sql`c.approved_at IS NULL AND c.state != 'pending' AND (
     c.archive_failed_at IS NOT NULL
     OR (c.reply_message_id IS NULL AND c.state = 'failed')

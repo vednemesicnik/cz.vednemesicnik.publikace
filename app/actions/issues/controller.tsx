@@ -108,28 +108,22 @@ import type {
 } from '../../data/articles.server.ts'
 import type { BatchRow, ListedBatch } from '../../data/artworks.server.ts'
 import { checkArticleFolders, recordedMissing } from '../../drive/article-folders.server.ts'
-import { checkAllDocRevisions } from '../../drive/doc-revisions.server.ts'
 import { discardBatch, resendBatch } from '../../drive/artworks-setup.server.ts'
+import { checkAllDocRevisions } from '../../drive/doc-revisions.server.ts'
 import {
   cancelFinalVersion,
   replaceFinalVersion,
   type ReplaceFinalStepOutcome,
 } from '../../drive/final-version.server.ts'
 import {
+  agreedWithLine,
   ALL_APPROVED_TOAST,
   alreadyReplacedToast,
   isReplaceable,
   MARK_REVISED_LABEL,
+  markRevisedButtonLabel,
   NEW_FINAL_SAVED_TOAST,
   REPLACE_DIALOG_MAIL,
-  REVISED_CALLOUT_TITLE,
-  REVISED_DIALOG_CANCEL,
-  REVISED_DIALOG_MAIL,
-  agreedWithLine,
-  markRevisedButtonLabel,
-  revisedCalloutText,
-  revisedDialogConsents,
-  revisedRestoredToast,
   REPLACE_FINAL_CONFIRM_LABEL,
   REPLACE_FINAL_DIALOG_TITLE,
   REPLACED_CLAUSES_LABEL,
@@ -140,6 +134,12 @@ import {
   replacedPdfHint,
   replacedSummary,
   restoredToast,
+  REVISED_CALLOUT_TITLE,
+  REVISED_DIALOG_CANCEL,
+  REVISED_DIALOG_MAIL,
+  revisedCalloutText,
+  revisedDialogConsents,
+  revisedRestoredToast,
 } from '../../domain/final-version-replacement.ts'
 import {
   CANCEL_FINAL_FAILED_TOAST,
