@@ -172,6 +172,41 @@ export function readLine(jobs: ReadingJobs, today: Temporal.Instant): ReadLine {
   return { after: '', before: text, link: null }
 }
 
+/* `13a`, the filter over the queue, in the address as `?kind=`. */
+export type ReviewKind = 'all' | 'articles' | 'artworks'
+
+export const REVIEW_KINDS: readonly { label: string; value: ReviewKind }[] = [
+  { label: 'Vše', value: 'all' },
+  { label: 'Články', value: 'articles' },
+  { label: 'Obrazová díla', value: 'artworks' },
+]
+
+/** The accessible name of the filter, which narrows kinds where the others narrow states. */
+export const REVIEW_KINDS_LABEL = 'Druh'
+
+/** A missing or unknown `?kind=` is _Vše_, as `?artworks=` is in the issue detail. */
+export function reviewKindOf(value: string | null): ReviewKind {
+  return REVIEW_KINDS.some((kind) => kind.value === value) ? (value as ReviewKind) : 'all'
+}
+
+/* A kind filtered to nothing while the other still has cards, in the overview's shape (`11a`).
+   `13c` draws only the whole queue empty. */
+export function emptyKindTitle(kind: Exclude<ReviewKind, 'all'>): string {
+  return kind === 'articles' ? 'Žádný článek ke kontrole' : 'Žádné obrazové dílo ke kontrole'
+}
+
+export function otherKindText(count: number): string {
+  return `Filtr Vše ukáže ${repliesCount(count)}.`
+}
+
+/** `1 odpověď`, `2 odpovědi`, `5 odpovědí`. */
+export function repliesCount(count: number): string {
+  if (count === 1) return '1 odpověď'
+  return count >= 2 && count <= 4 ? `${count} odpovědi` : `${count} odpovědí`
+}
+
+export const SHOW_ALL_LABEL = 'Zobrazit vše'
+
 /* `13c`, the empty queue. */
 export const EMPTY_TITLE = 'Nic ke kontrole'
 export const EMPTY_TEXT = tied`Všechny odpovědi byly přesně „Souhlasím“, nebo jste o nich už rozhodli. Kde co čeká na souhlas, ukazuje detail vydání.`
