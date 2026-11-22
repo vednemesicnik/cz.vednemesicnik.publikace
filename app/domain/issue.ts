@@ -245,26 +245,20 @@ export const CLOSE_ANYWAY_LABEL = 'Přesto uzavřít'
 
 /**
  * The warning of `12g` while articles or artworks still lack consent, or `null` when nothing
- * does. The verb agrees with what it counts: _1 článek nemá_, _2 články nemají_, _5 článků nemá_,
- * and two kinds together _nemají_.
+ * does: _U 2 článků a 3 děl zatím chybí souhlas._ The counts stand in the genitive, so no verb
+ * has to agree with them.
+ *
+ * The drawn _a do podkladů se nedostanou_ is left out: nothing of an issue made in the app
+ * reaches the material for print, closed or not, so closing would be blamed for something it
+ * does not cause.
  */
 export function closeWarningText(articles: number, artworks: number): string | null {
   if (articles === 0 && artworks === 0) return null
-  let parts = [
-    ...(articles === 0 ? [] : [articleCount(articles)]),
-    ...(artworks === 0 ? [] : [artworkCount(artworks)]),
+  let counts = [
+    ...(articles === 0 ? [] : [`${articles} ${articles === 1 ? 'článku' : 'článků'}`]),
+    ...(artworks === 0 ? [] : [`${artworks} ${artworks === 1 ? 'díla' : 'děl'}`]),
   ]
-  let only = articles === 0 ? artworks : artworks === 0 ? articles : null
-  let isSingularVerb = only !== null && (only === 1 || only >= 5)
-  let isOneThing = only === 1
-  let subject = parts.join(tied` a `)
-  let first = `${subject} ještě ${isSingularVerb ? 'nemá' : 'nemají'} souhlas.`
-  /* Without the drawn _a do podkladů se nedostanou_: nothing of an issue made in the app reaches
-     the material for print yet, so the clause would imply the rest does. */
-  let second = isOneThing
-    ? tied`Po uzavření systém nepřečte odpovědi k němu.`
-    : tied`Po uzavření systém nepřečte jejich odpovědi.`
-  return `${first} ${second}`
+  return tied`U ${counts.join(tied` a `)} zatím chybí souhlas. Dokud je vydání uzavřené, aplikace neodesílá žádosti o souhlas ani nečte odpovědi.`
 }
 
 export function reopenDialogTitle(name: string): string {
@@ -282,7 +276,7 @@ export function closedCalloutText(closedAt: Temporal.Instant): string {
 /** Under the struck-through link of a closed issue (`12h`). */
 export const CLOSED_LINK_META = tied`Neplatí od uzavření`
 
-/* Drafts, not drawn: after `finishedToast`, for `/ask-copy`. */
+/* Not drawn: after `finishedToast`, through `/ask-copy`. */
 export function closedToast(name: string): string {
   return `Vydání ${name} je uzavřené.`
 }

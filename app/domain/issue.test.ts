@@ -170,17 +170,18 @@ describe('the lines of an issue', () => {
 })
 
 describe('closing an issue (12g, 12h)', () => {
-  it('warns only while something lacks consent, the verb agreeing with what it counts', () => {
+  it('warns only while something lacks consent, the counts in the genitive', () => {
+    let first = (articles: number, artworks: number) =>
+      closeWarningText(articles, artworks)?.split('. ')[0]?.replaceAll('\u00a0', ' ')
     assert.equal(closeWarningText(0, 0), null)
-    assert.match(closeWarningText(2, 3) ?? '', /^2 články a\u00a03 díla ještě nemají souhlas\. /)
-    assert.match(closeWarningText(1, 0) ?? '', /^1 článek ještě nemá souhlas\. .*k\u00a0němu\.$/)
+    assert.equal(first(2, 3), 'U 2 článků a 3 děl zatím chybí souhlas')
+    assert.equal(first(1, 0), 'U 1 článku zatím chybí souhlas')
+    assert.equal(first(0, 1), 'U 1 díla zatím chybí souhlas')
+    assert.equal(first(0, 2), 'U 2 děl zatím chybí souhlas')
+    assert.equal(first(5, 0), 'U 5 článků zatím chybí souhlas')
     assert.match(
-      closeWarningText(0, 2) ?? '',
-      /^2 díla ještě nemají souhlas\. .*jejich odpovědi\.$/,
-    )
-    assert.match(
-      closeWarningText(5, 0) ?? '',
-      /^5 článků ještě nemá souhlas\. .*jejich odpovědi\.$/,
+      closeWarningText(1, 1) ?? '',
+      /Dokud je vydání uzavřené, aplikace neodesílá žádosti o\u00a0souhlas ani nečte odpovědi\.$/,
     )
   })
 
