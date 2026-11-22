@@ -728,6 +728,7 @@ function ClauseBand(handle: Handle<{ clauses: ClausesView }>) {
               target="_blank"
             >
               {OPEN_PDF_LABEL}
+              <span class="vdm-sr-only">{tied` (otevře se v nové záložce)`}</span>
             </a>
             <a
               class="vdm-btn vdm-btn--outline vdm-btn--sm"
@@ -736,6 +737,7 @@ function ClauseBand(handle: Handle<{ clauses: ClausesView }>) {
               target="_blank"
             >
               Otevřít dokument
+              <span class="vdm-sr-only">{tied` (otevře se v nové záložce)`}</span>
             </a>
             {clauses.resend === null ? null : (
               <form action={clauses.resend.action} method="post">
