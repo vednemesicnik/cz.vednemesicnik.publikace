@@ -212,7 +212,8 @@ export function waitsOnEditors(state: ArticleState): boolean {
  * The line under the count of articles in the overview (`11a`), _Schváleno_ alone counting
  * (`01a`): an article _Upraveno po schválení_ waits on the editors, and a row that said
  * _všechny schválené_ beside it in _Čeká na vás_ would contradict itself. `null` is an issue
- * without an article. The lone article and none approved are drafts for `/ask-copy`.
+ * without an article. None approved still says `0 schválených`, so an active row never looks
+ * like a closed one; a lone approved article says `schválený` without repeating the `1` above.
  */
 export function approvedArticlesLine(count: ApprovedCount): string | null {
   if (count.total === 0) return null

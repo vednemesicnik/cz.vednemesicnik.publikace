@@ -216,8 +216,8 @@ function approvedWord(count: number): string {
 
 /**
  * The line under the count of artworks in the overview (`11a`), a batch counting when it is
- * _Schváleno_ (`01b`). `null` is an issue without artworks. The lone artwork and none approved
- * are drafts for `/ask-copy`.
+ * _Schváleno_ (`01b`). `null` is an issue without artworks. None approved says `0 schválených`
+ * rather than the detail's `u poskytovatele`, which the overview cannot tell from a zero.
  */
 export function approvedArtworksLine(count: ApprovedCount): string | null {
   if (count.total === 0) return null

@@ -315,7 +315,7 @@ export function phoneRowLine(
   return { tail: isAllApproved ? { isWaiting: false, text: 'vše schválené' } : null, text }
 }
 
-/* `11e` draws `5 čeká na vás`; the 2–4 form is a draft for `/ask-copy`. */
+/* `11e` draws `5 čeká na vás`; the verb agrees with the number, `2 čekají na vás`. */
 function waitingText(count: number): string {
   return `${count} ${count >= 2 && count <= 4 ? 'čekají' : 'čeká'} na vás`
 }
