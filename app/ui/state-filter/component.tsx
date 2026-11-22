@@ -12,7 +12,7 @@ export type StateFilterItem = {
 
 export type StateFilterProps = {
   items: readonly StateFilterItem[]
-  /** The accessible name of the `<nav>`: what the filter narrows, as _Stav_ or _Druh_. */
+  /** The accessible name of the `<nav>`: what the filter narrows, as _Stav_ or _Druh položky_. */
   label: string
 }
 

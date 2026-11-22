@@ -503,7 +503,7 @@ describe('Ke kontrole narrowed to one kind', () => {
 
       await replyTo(app, batch, 'ok, souhlas')
       let html = await (await browser.get('/review?kind=articles')).text()
-      assert.match(html, /U článků tu nic není/)
+      assert.match(html, /U\u00a0článků tu nic není/)
       assert.match(html, /Filtr Vše ukáže 1 položku\./)
       assert.match(html, /href="\/review" class="vdm-btn[^"]*">Zobrazit vše</)
       assert.doesNotMatch(html, /Obrazová díla · 2 díla/)

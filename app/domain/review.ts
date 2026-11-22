@@ -195,7 +195,7 @@ export function reviewKindOf(value: string | null): ReviewKind {
  * its consent is no longer a reply to decide.
  */
 export function emptyKindTitle(kind: Exclude<ReviewKind, 'all'>): string {
-  return kind === 'articles' ? 'U článků tu nic není' : 'U obrazových děl tu nic není'
+  return kind === 'articles' ? tied`U článků tu nic není` : tied`U obrazových děl tu nic není`
 }
 
 export function otherKindText(count: number): string {
