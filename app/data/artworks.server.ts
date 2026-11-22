@@ -3,13 +3,13 @@ import { sql } from 'remix/data-table'
 
 import type { ArtworkCounts, ArtworkState, BatchStatus } from '../domain/artwork.ts'
 import { batchState, batchTag, isWaiting, NO_ARTWORKS } from '../domain/artwork.ts'
+import type { ApprovedCount } from '../domain/issue.ts'
 import {
   type BatchReport,
   CLAIM_LIMIT,
   CLAIM_MINUTES,
   decideReport,
 } from '../domain/reply-check.ts'
-import type { ApprovedCount } from '../domain/issue.ts'
 import { parseStamp, stamp } from '../domain/time.ts'
 import { applyConsentPatch } from './consent-patch.server.ts'
 
