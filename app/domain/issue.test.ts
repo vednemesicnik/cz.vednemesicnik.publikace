@@ -20,6 +20,8 @@ import {
   articleCount,
   artworkCount,
   otherFilterText,
+  closeWarningText,
+  closedCalloutText,
 } from './issue.ts'
 
 const NOVEMBER = Temporal.Instant.from('2026-11-14T09:00:00Z')
@@ -164,5 +166,25 @@ describe('the lines of an issue', () => {
 
   it('does not decline vydání', () => {
     assert.equal(otherFilterText(2), 'Filtr Vše ukáže 2 vydání.')
+  })
+})
+
+describe('closing an issue (12g, 12h)', () => {
+  it('warns only while something lacks consent, the verb agreeing with what it counts', () => {
+    assert.equal(closeWarningText(0, 0), null)
+    assert.match(closeWarningText(2, 3) ?? '', /^2 články a\u00a03 díla ještě nemají souhlas\. /)
+    assert.match(closeWarningText(1, 0) ?? '', /^1 článek ještě nemá souhlas\. .*k\u00a0němu\.$/)
+    assert.match(
+      closeWarningText(0, 2) ?? '',
+      /^2 díla ještě nemají souhlas\. .*jejich odpovědi\.$/,
+    )
+    assert.match(
+      closeWarningText(5, 0) ?? '',
+      /^5 článků ještě nemá souhlas\. .*jejich odpovědi\.$/,
+    )
+  })
+
+  it('says since when the issue is closed', () => {
+    assert.match(closedCalloutText(NOVEMBER), /^Vydání je uzavřené od 14\. 11\. 2026\./)
   })
 })

@@ -226,6 +226,71 @@ function czechPlural(count: number, one: string, few: string, many: string): str
   return count >= 2 && count <= 4 ? few : many
 }
 
+/* `12g`, `12h`: closing and reopening an issue, from the detail's „⋯“ and the overview row's. */
+export const CLOSE_ISSUE_LABEL = 'Uzavřít vydání…'
+export const REOPEN_ISSUE_LABEL = 'Znovu otevřít vydání…'
+export const OPEN_FOLDER_LABEL = 'Otevřít složku na Disku'
+export const OPEN_PRINT_FOLDER_LABEL = 'Otevřít podklady pro tisk'
+
+export function closeDialogTitle(name: string): string {
+  return `Uzavřít vydání ${name}?`
+}
+
+/* As drawn, without _Složka pro grafika se přestane sdílet._: nothing in the app shares that
+   folder yet, so the sentence would promise a step that does not happen. */
+export const CLOSE_DIALOG_TEXT = tied`Odkazy pro redakci přestanou platit a úlohy na pozadí vydání přeskočí.`
+export const CLOSE_DIALOG_NOTE = tied`Soubory na Disku zůstanou. Vydání jde kdykoli znovu otevřít.`
+export const CLOSE_CONFIRM_LABEL = 'Uzavřít vydání'
+export const CLOSE_ANYWAY_LABEL = 'Přesto uzavřít'
+
+/**
+ * The warning of `12g` while articles or artworks still lack consent, or `null` when nothing
+ * does. The verb agrees with what it counts: _1 článek nemá_, _2 články nemají_, _5 článků nemá_,
+ * and two kinds together _nemají_.
+ */
+export function closeWarningText(articles: number, artworks: number): string | null {
+  if (articles === 0 && artworks === 0) return null
+  let parts = [
+    ...(articles === 0 ? [] : [articleCount(articles)]),
+    ...(artworks === 0 ? [] : [artworkCount(artworks)]),
+  ]
+  let only = articles === 0 ? artworks : artworks === 0 ? articles : null
+  let isSingularVerb = only !== null && (only === 1 || only >= 5)
+  let isOneThing = only === 1
+  let subject = parts.join(tied` a `)
+  let first = `${subject} ještě ${isSingularVerb ? 'nemá' : 'nemají'} souhlas.`
+  /* Without the drawn _a do podkladů se nedostanou_: nothing of an issue made in the app reaches
+     the material for print yet, so the clause would imply the rest does. */
+  let second = isOneThing
+    ? tied`Po uzavření systém nepřečte odpovědi k němu.`
+    : tied`Po uzavření systém nepřečte jejich odpovědi.`
+  return `${first} ${second}`
+}
+
+export function reopenDialogTitle(name: string): string {
+  return `Znovu otevřít ${name}?`
+}
+
+export const REOPEN_DIALOG_TEXT = tied`Původní odkazy pro redakci začnou znovu platit a úlohy na pozadí vydání zase zpracují.`
+export const REOPEN_CONFIRM_LABEL = 'Znovu otevřít'
+
+/** The Callout over a closed issue's detail (`12h`), with _Znovu otevřít_ under it. */
+export function closedCalloutText(closedAt: Temporal.Instant): string {
+  return tied`Vydání je uzavřené od ${formatDate(closedAt)}. Odkazy neplatí, úlohy ho přeskakují.`
+}
+
+/** Under the struck-through link of a closed issue (`12h`). */
+export const CLOSED_LINK_META = tied`Neplatí od uzavření`
+
+/* Drafts, not drawn: after `finishedToast`, for `/ask-copy`. */
+export function closedToast(name: string): string {
+  return `Vydání ${name} je uzavřené.`
+}
+
+export function reopenedToast(name: string): string {
+  return `Vydání ${name} je znovu otevřené.`
+}
+
 /** The second line of a row on a phone, where the counts stand in one line (`11e`). */
 export function phoneRowLine(issue: Issue, articles: number, artworks: number): string {
   let state = issueState(issue)
