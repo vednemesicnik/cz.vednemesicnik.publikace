@@ -63,8 +63,9 @@ let suiteAssets: Promise<Assets> | null = null
  * entry for each test would slow the suite down; without a watcher it holds nothing open.
  */
 function assetsFor(environment: Environment): { assets: Promise<Assets>; isShared: boolean } {
-  if (environment !== TEST_ENVIRONMENT)
+  if (environment !== TEST_ENVIRONMENT) {
     return { assets: createAssets(environment), isShared: false }
+  }
   suiteAssets ??= createAssets(TEST_ENVIRONMENT)
   return { assets: suiteAssets, isShared: true }
 }

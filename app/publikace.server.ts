@@ -103,7 +103,7 @@ export async function createPublikace(environment: Environment): Promise<Publika
      * Before the first request, no request is running, so every article attempt and artwork batch
      * left uncommitted is one a crash or a failed cleanup left behind: its files go to the bin now
      * (`11c`), and so does every upload that waited 24 hours unsent (`21d`). A Drive that does not
-     * answer delays it to the next start and does not stop the app.
+     * answer delays it to the next send and does not stop the app.
      */
     let setup = { database: database.database, environment }
     try {
