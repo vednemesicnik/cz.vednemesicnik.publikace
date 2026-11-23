@@ -2,6 +2,7 @@ import * as http from 'node:http'
 import { createRequestListener } from 'remix/node-fetch-server'
 
 import { assetServer } from '../app/assets.ts'
+import { startRecordQueue } from '../app/drive/record-queue.server.ts'
 import { createFakeApp } from '../app/fake-app.server.ts'
 
 /*
@@ -24,6 +25,8 @@ const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44110
 process.env.APP_ORIGIN = `http://${host}:${port}`
 
 const fakeApp = await createFakeApp()
+/* The record follows the fake database as it follows the real one, into the fake Registr. */
+const recordQueue = startRecordQueue(fakeApp.app.record)
 
 let mailPrinted = 0
 const server = http.createServer(
@@ -55,6 +58,7 @@ let isShuttingDown = false
 function shutdown() {
   if (isShuttingDown) return
   isShuttingDown = true
+  recordQueue.stop()
   server.close(() => {
     Promise.allSettled([assetServer.close(), fakeApp.close()]).finally(() => process.exit(0))
   })

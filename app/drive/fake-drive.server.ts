@@ -238,7 +238,11 @@ export function createFakeDrive(): FakeDrive {
 
     if (method === 'GET' && rest === '') {
       return Response.json({
-        sheets: sheet.lists.map(({ sheetId, title }) => ({ properties: { sheetId, title } })),
+        sheets: sheet.lists.map(({ editors, sheetId, title }) => ({
+          properties: { sheetId, title },
+          protectedRanges:
+            editors === null ? [] : [{ editors: { users: editors }, range: { sheetId } }],
+        })),
       })
     }
 

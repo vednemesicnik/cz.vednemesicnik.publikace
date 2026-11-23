@@ -156,7 +156,13 @@ function layoutRequests(layout: SheetLayout, sheetId: number, editor: string): u
       })
     }
   }
-  requests.push({
+  requests.push(protectionRequest(sheetId, editor))
+  return requests
+}
+
+/** The whole list editable by `editor` alone, people reading it (`AGENTS.md`). */
+function protectionRequest(sheetId: number, editor: string): unknown {
+  return {
     addProtectedRange: {
       protectedRange: {
         description: 'Zapisuje aplikace Publikace.',
@@ -165,18 +171,40 @@ function layoutRequests(layout: SheetLayout, sheetId: number, editor: string): u
         warningOnly: false,
       },
     },
-  })
-  return requests
+  }
 }
 
-type ListTitle = { sheetId: number; title: string }
+/**
+ * A list as `layOut` sees it: its title, and whether a protection covers all of it with the app's
+ * account as its only editor. A list of the app's name that somebody else made, or whose
+ * protection was loosened, is then protected again rather than trusted by its title.
+ */
+type ListTitle = { isProtected: boolean; sheetId: number; title: string }
+
+type ProtectedRange = {
+  editors?: { users?: unknown }
+  range?: Record<string, unknown>
+  warningOnly?: unknown
+}
+
+function isWholeListFor(protection: ProtectedRange, sheetId: number, editor: string): boolean {
+  let range = protection.range ?? {}
+  let isWhole = Object.keys(range).every((key) => key === 'sheetId') && range['sheetId'] === sheetId
+  let users = Array.isArray(protection.editors?.users) ? protection.editors.users : []
+  let isOnlyEditor = users.length === 1 && String(users[0]).toLowerCase() === editor.toLowerCase()
+  return isWhole && isOnlyEditor && protection.warningOnly !== true
+}
 
 async function listTitles(
   call: DriveCall,
   spreadsheetId: string,
+  editor: string,
 ): Promise<{ error: string; ok: false } | { lists: ListTitle[]; ok: true }> {
   let url = new URL(`${SHEETS_ENDPOINT}/${encodeURIComponent(spreadsheetId)}`)
-  url.searchParams.set('fields', 'sheets.properties(sheetId,title)')
+  url.searchParams.set(
+    'fields',
+    'sheets(properties(sheetId,title),protectedRanges(range,editors,warningOnly))',
+  )
   let response = await call('a spreadsheet was not looked at', url)
   if (response === null) return { error: 'no answer', ok: false }
   let body = await readJson(response)
@@ -184,10 +212,20 @@ async function listTitles(
     return { error: describe(response, body), ok: false }
   }
   let lists = (body['sheets'] as unknown[]).flatMap((sheet) => {
-    let properties = (sheet as { properties?: { sheetId?: unknown; title?: unknown } }).properties
-    return typeof properties?.sheetId === 'number' && typeof properties.title === 'string'
-      ? [{ sheetId: properties.sheetId, title: properties.title }]
-      : []
+    let { properties, protectedRanges } = sheet as {
+      properties?: { sheetId?: unknown; title?: unknown }
+      protectedRanges?: unknown
+    }
+    if (typeof properties?.sheetId !== 'number' || typeof properties.title !== 'string') return []
+    let sheetId = properties.sheetId
+    let protections = Array.isArray(protectedRanges) ? (protectedRanges as ProtectedRange[]) : []
+    return [
+      {
+        isProtected: protections.some((protection) => isWholeListFor(protection, sheetId, editor)),
+        sheetId,
+        title: properties.title,
+      },
+    ]
   })
   return { lists, ok: true }
 }
@@ -236,10 +274,10 @@ export function createRecordSheets(options: RecordSheetsOptions): RecordSheets {
     },
 
     async layOut(spreadsheetId, layouts, layOutOptions = {}) {
-      let titles = await listTitles(call, spreadsheetId)
+      let titles = await listTitles(call, spreadsheetId, options.editor)
       if (!titles.ok) return titles
       let ours = new Set(layouts.map((layout) => layout.name))
-      let present = new Set(titles.lists.map((list) => list.title))
+      let present = new Map(titles.lists.map((list) => [list.title, list]))
       let nextId = Math.max(0, ...titles.lists.map((list) => list.sheetId)) + 1
       /* A spreadsheet the app created comes with one empty list of a locale's name, which becomes
          the first list rather than staying beside it. Another spreadsheet's list is never
@@ -253,7 +291,13 @@ export function createRecordSheets(options: RecordSheetsOptions): RecordSheets {
 
       let requests: unknown[] = []
       for (let layout of layouts) {
-        if (present.has(layout.name)) continue
+        let existing = present.get(layout.name)
+        if (existing !== undefined) {
+          if (!existing.isProtected) {
+            requests.push(protectionRequest(existing.sheetId, options.editor))
+          }
+          continue
+        }
         let sheetId: number
         if (spare !== undefined) {
           sheetId = spare.sheetId

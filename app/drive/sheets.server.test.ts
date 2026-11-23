@@ -110,3 +110,22 @@ describe('the record’s spreadsheets', () => {
     assert.equal(result.ok, false)
   })
 })
+
+describe('a list of the app’s name that somebody else made', () => {
+  it('is protected for the app alone rather than trusted by its title', async () => {
+    let { drive, sheets } = setup()
+    drive.seedSpreadsheet('registry', 'Registr', [
+      { cells: [], title: 'Vydání' },
+      { cells: [['ruční zápis']], title: 'Vydání z aplikace' },
+    ])
+
+    assert.deepEqual(await sheets.layOut('registry', [REGISTRY_LIST]), { ok: true })
+    let [old, ours] = drive.spreadsheet('registry')?.lists ?? []
+    assert.deepEqual(ours?.editors, [EDITOR])
+    assert.equal(old?.editors, null)
+
+    let before = drive.calls.length
+    await sheets.layOut('registry', [REGISTRY_LIST])
+    assert.deepEqual(drive.calls.slice(before), ['GET /v4/spreadsheets/registry'])
+  })
+})
