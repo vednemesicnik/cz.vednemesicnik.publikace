@@ -216,7 +216,6 @@ export default function createPrintHandoffController(dependencies: PrintHandoffD
 
         let answers = []
         for (let issue of read) {
-          if (issue === null) continue
           let answer = await dependencies.handoffs.record(runKey, issue)
           answers.push({ answer, issueId: issue.issueId })
         }
