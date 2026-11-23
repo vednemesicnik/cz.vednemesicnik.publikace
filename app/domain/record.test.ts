@@ -7,6 +7,7 @@ import {
   ARTICLES_LIST,
   articleRows,
   ARTWORKS_LIST,
+  isFullRewriteDue,
   artworkRows,
   batchStatus,
   CLAUSES_LIST,
@@ -15,6 +16,7 @@ import {
   type RecordClause,
   REGISTRY_LIST,
   registryRows,
+  retryDelay,
   serialDate,
   spreadsheetUrl,
 } from './record.ts'
@@ -267,5 +269,20 @@ describe('Obrazová díla', () => {
 describe('Otevřít Evidenci', () => {
   it('opens the spreadsheet', () => {
     assert.equal(spreadsheetUrl('sheet-1'), 'https://docs.google.com/spreadsheets/d/sheet-1/edit')
+  })
+})
+
+describe('the record queue', () => {
+  it('waits longer after each failure, an hour at most', () => {
+    assert.deepEqual(
+      [1, 2, 3, 6, 9].map((attempts) => retryDelay(attempts).total('minutes')),
+      [2, 4, 8, 60, 60],
+    )
+  })
+
+  it('rewrites everything a day after the last time, or when it never did', () => {
+    assert.equal(isFullRewriteDue(null, AT), true)
+    assert.equal(isFullRewriteDue(AT, AT.add({ hours: 23 })), false)
+    assert.equal(isFullRewriteDue(AT, AT.add({ hours: 24 })), true)
   })
 })

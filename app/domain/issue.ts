@@ -27,6 +27,8 @@ export const PRINT_FOLDER_NAME = '_Podklady_pro_tisk'
 export type Issue = {
   closedAt: Temporal.Instant | null
   completedAt: Temporal.Instant | null
+  /** The issue's Evidence, which the record queue creates once the issue is complete (#111). */
+  evidenceSpreadsheetId: string | null
   folderIds: Record<FolderKind, string | null>
   id: number
   name: string

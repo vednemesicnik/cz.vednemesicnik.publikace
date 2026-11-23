@@ -435,3 +435,27 @@ export function artworkRows(batches: readonly RecordBatch[]): Cell[][] {
       ])
     })
 }
+
+/** At most this many records a pass writes: two Sheets calls each, under 60 writes a minute. */
+export const RECORDS_PER_PASS = 20
+
+/**
+ * How long a record that failed waits before the next try: 2, 4, 8… minutes, an hour at most. A
+ * change to the record resets it, so a fresh change is tried on the next pass.
+ */
+export function retryDelay(attempts: number): Temporal.Duration {
+  return Temporal.Duration.from({ minutes: Math.min(2 ** Math.max(attempts, 1), 60) })
+}
+
+/**
+ * Whether every record is due its daily rewrite from the database (`03` row 11). Measured from
+ * the last one rather than at a fixed hour, so a machine that slept through the night rewrites
+ * on its next pass.
+ */
+export function isFullRewriteDue(
+  lastFullAt: Temporal.Instant | null,
+  at: Temporal.Instant,
+): boolean {
+  if (lastFullAt === null) return true
+  return Temporal.Instant.compare(lastFullAt.add({ hours: 24 }), at) <= 0
+}
