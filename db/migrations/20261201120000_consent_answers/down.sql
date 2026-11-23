@@ -1,3 +1,5 @@
+DROP TRIGGER record_clause_answered;
+DROP TRIGGER record_batch_answered;
 ALTER TABLE article_clauses DROP COLUMN answered_at;
 ALTER TABLE article_clauses DROP COLUMN answered_message_id;
 ALTER TABLE artwork_batches DROP COLUMN answered_at;

@@ -339,6 +339,24 @@ describe('answering a reply from Ke kontrole', () => {
     }
   })
 
+  it('has the Evidence written again once an answer went', async () => {
+    let { app, batch, browser, issueId } = await setup()
+    try {
+      await replyTo(app, batch, 'Můžu se zeptat?')
+      await app.database.exec(sql`DELETE FROM record_marks`)
+      await answerBatch(app, browser, batch, ANSWER)
+      let marks = await app.database.exec(
+        sql`SELECT kind, issue_id FROM record_marks WHERE kind = 'evidence'`,
+      )
+      assert.deepEqual(
+        (marks.rows ?? []).map((row) => Number(row['issue_id'])),
+        [issueId],
+      )
+    } finally {
+      await app.close()
+    }
+  })
+
   it('deletes the answers with the reply once the conversation is in Licence', async () => {
     let { app, batch, browser } = await setup()
     try {

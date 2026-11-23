@@ -53,3 +53,29 @@ ALTER TABLE article_clauses ADD COLUMN answered_message_id TEXT
   CHECK (answered_message_id <> '');
 ALTER TABLE article_clauses ADD COLUMN answered_at TEXT
   CHECK ((answered_message_id IS NULL) = (answered_at IS NULL));
+
+-- An answer puts the provider or the author on the move, which the Evidence says as _Čeká na
+-- odpověď_: the record queue writes the issue's Evidence again, as it does for every other
+-- change of a batch's or a clause's state (`20261130120000_record_queue`).
+CREATE TRIGGER record_batch_answered
+AFTER UPDATE OF answered_message_id, answered_at ON artwork_batches
+WHEN NEW.created_at IS NOT NULL AND
+  (OLD.answered_message_id IS NOT NEW.answered_message_id OR
+   OLD.answered_at IS NOT NEW.answered_at)
+BEGIN
+  INSERT INTO record_marks (kind, issue_id) VALUES ('evidence', NEW.issue_id)
+  ON CONFLICT (kind, issue_id) DO UPDATE
+    SET generation = generation + 1, attempts = 0, retry_at = NULL, last_error = NULL;
+END;
+
+CREATE TRIGGER record_clause_answered
+AFTER UPDATE OF answered_message_id, answered_at ON article_clauses
+WHEN
+  (OLD.answered_message_id IS NOT NEW.answered_message_id OR
+   OLD.answered_at IS NOT NEW.answered_at)
+BEGIN
+  INSERT INTO record_marks (kind, issue_id)
+  VALUES ('evidence', (SELECT issue_id FROM articles WHERE id = NEW.article_id))
+  ON CONFLICT (kind, issue_id) DO UPDATE
+    SET generation = generation + 1, attempts = 0, retry_at = NULL, last_error = NULL;
+END;
