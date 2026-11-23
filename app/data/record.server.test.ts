@@ -85,6 +85,15 @@ describe('the record queue’s marks', () => {
             WHERE id = ${batch.id}`,
       )
       assert.deepEqual(await marks(app), [])
+
+      /* The reply check writes a reply it read before again on every run: the same values. */
+      await app.database.exec(
+        sql`UPDATE artwork_batches
+            SET reply_message_id = reply_message_id, is_exact_consent = is_exact_consent,
+              mail_sent_at = mail_sent_at
+            WHERE id = ${batch.id}`,
+      )
+      assert.deepEqual(await marks(app), [])
     } finally {
       await app.close()
     }
