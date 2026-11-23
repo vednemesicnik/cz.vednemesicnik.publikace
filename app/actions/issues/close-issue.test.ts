@@ -103,7 +103,7 @@ describe('closing an issue (12g)', () => {
           'Soubory i složky na Disku zůstanou a jejich sdílení se nezmění. Vydání jde kdykoli znovu otevřít.',
         ),
       )
-      assert.ok(!text.includes('grafik'), 'closing leaves the designer’s folder shared')
+      assert.ok(!text.includes('grafik'), 'the dialog makes no exception of the designer’s folder')
       assert.ok(!text.includes('Přesto uzavřít'))
       assert.ok(
         html.includes('class="vdm-btn vdm-btn--danger vdm-btn--sm">Uzavřít vydání</button>'),
