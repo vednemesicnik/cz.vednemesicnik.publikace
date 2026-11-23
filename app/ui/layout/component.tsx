@@ -108,23 +108,27 @@ const mainWithToastStyle = css({
 })
 
 /*
- * The margin before the slot adds to the page's gap up to its usual bottom padding. The inline
- * margins pull it from the page's padding to the toast's own offset, and give it as much width
- * as `fixed` did, the window less the panel and 18 px on each side. `alignSelf: start` keeps it
- * as wide as its toast. It lets taps through; a toast with an action takes them back
- * (`zulb5phd`).
+ * The padding above the toast adds to the page's gap up to its usual bottom padding; it is
+ * padding rather than margin so that the `auto` margin can take the rest of a page shorter than
+ * the window, where `sticky` alone would leave the toast right under the last content instead of
+ * 18 px above the window's edge. The page fills the window's height (`shellStyle`), so the slot
+ * then stands at its bottom. The inline margins pull it from the page's padding to the toast's own
+ * offset, and give it as much width as `fixed` did, the window less the panel and 18 px on each
+ * side. `alignSelf: start` keeps it as wide as its toast. It lets taps through; a toast with an
+ * action takes them back (`zulb5phd`).
  */
 const toastSlotStyle = css({
   alignSelf: 'start',
   bottom: `${TOAST_OFFSET}px`,
-  marginBlockStart: `${PAGE.bottom - PAGE.gap}px`,
+  marginBlockStart: 'auto',
   marginInline: `${TOAST_OFFSET - PAGE.inline}px`,
+  paddingBlockStart: `${PAGE.bottom - PAGE.gap}px`,
   pointerEvents: 'none',
   position: 'sticky',
   zIndex: 'var(--z-notification)',
   [PHONE]: {
-    marginBlockStart: `${PHONE_PAGE.bottom - PHONE_PAGE.gap}px`,
     marginInline: `${PHONE_TOAST_INSET - PHONE_PAGE.inline}px`,
+    paddingBlockStart: `${PHONE_PAGE.bottom - PHONE_PAGE.gap}px`,
   },
 })
 
