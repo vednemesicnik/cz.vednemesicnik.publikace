@@ -239,6 +239,8 @@ export const CLOSE_ISSUE_LABEL = 'Uzavřít vydání…'
 export const REOPEN_ISSUE_LABEL = 'Znovu otevřít vydání…'
 export const OPEN_FOLDER_LABEL = 'Otevřít složku na Disku'
 export const OPEN_PRINT_FOLDER_LABEL = 'Otevřít podklady pro tisk'
+/* `12a`, `12h`: first in the detail's „⋯“ once the record queue created it (#111). */
+export const OPEN_EVIDENCE_LABEL = 'Otevřít Evidenci'
 
 export function closeDialogTitle(name: string): string {
   return `Uzavřít vydání ${name}?`
