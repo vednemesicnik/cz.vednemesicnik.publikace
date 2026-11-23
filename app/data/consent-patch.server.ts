@@ -24,7 +24,7 @@ const ANSWER_OWNERS = {
 
 /**
  * When an answer from _Ke kontrole_ went to the latest reply, read from a row of either table:
- * only while the message it answered is still the latest one (`20261130120000_consent_answers`).
+ * only while the message it answered is still the latest one (`20261201120000_consent_answers`).
  */
 export function answeredAtOf(row: Record<string, unknown>): Temporal.Instant | null {
   let answered = row['answered_message_id']
