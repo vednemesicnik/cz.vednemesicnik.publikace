@@ -195,9 +195,21 @@ type ProtectedRange = {
   warningOnly?: unknown
 }
 
+/**
+ * Google's JSON leaves out a field whose value is its zero, so the first list's `sheetId` 0 and a
+ * range's start at 0 arrive absent: an absent number is read as 0, never as missing.
+ */
+function numberOr0(value: unknown): number | null {
+  if (value === undefined) return 0
+  return typeof value === 'number' ? value : null
+}
+
+/** The whole list: no bound but its `sheetId`, which may itself be absent for list 0. */
 function isWholeList(protection: ProtectedRange, sheetId: number): boolean {
   let range = protection.range ?? {}
-  return Object.keys(range).every((key) => key === 'sheetId') && range['sheetId'] === sheetId
+  return (
+    Object.keys(range).every((key) => key === 'sheetId') && numberOr0(range['sheetId']) === sheetId
+  )
 }
 
 /** All of the list, nothing carved out of it, and nobody but `editor` may edit it. */
@@ -236,19 +248,18 @@ async function listTitles(
       properties?: { sheetId?: unknown; title?: unknown }
       protectedRanges?: unknown
     }
-    if (typeof properties?.sheetId !== 'number' || typeof properties.title !== 'string') return []
-    let sheetId = properties.sheetId
+    let sheetId = numberOr0(properties?.sheetId)
+    if (sheetId === null || typeof properties?.title !== 'string') return []
     let whole = (
       Array.isArray(protectedRanges) ? (protectedRanges as ProtectedRange[]) : []
     ).filter((protection) => isWholeList(protection, sheetId))
     return [
       {
         isProtected: whole.some((protection) => isTightFor(protection, editor)),
-        loosened: whole.flatMap((protection) =>
-          !isTightFor(protection, editor) && typeof protection.protectedRangeId === 'number'
-            ? [protection.protectedRangeId]
-            : [],
-        ),
+        loosened: whole.flatMap((protection) => {
+          let id = numberOr0(protection.protectedRangeId)
+          return !isTightFor(protection, editor) && id !== null ? [id] : []
+        }),
         sheetId,
         title: properties.title,
       },

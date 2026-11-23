@@ -247,14 +247,19 @@ export function createFakeDrive(): FakeDrive {
 
     if (method === 'GET' && rest === '') {
       return Response.json({
-        sheets: sheet.lists.map(({ protections, sheetId, title }) => ({
-          properties: { sheetId, title },
-          protectedRanges: protections.map(({ id, ...editors }) => ({
-            editors,
-            protectedRangeId: id,
-            range: { sheetId },
-          })),
-        })),
+        /* As Google's JSON does: a field whose value is 0 is left out, so list 0 has no
+           `sheetId`. */
+        sheets: sheet.lists.map(({ protections, sheetId, title }) => {
+          let id = sheetId === 0 ? {} : { sheetId }
+          return {
+            properties: { ...id, title },
+            protectedRanges: protections.map(({ id: protectedRangeId, ...editors }) => ({
+              editors,
+              protectedRangeId,
+              range: id,
+            })),
+          }
+        }),
       })
     }
 
