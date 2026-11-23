@@ -98,13 +98,15 @@ server.listen(port, () => {
   }
 
   console.log(`Server listening on http://localhost:${hmrProxyPort ?? port}`)
+
+  /*
+   * The Registr and each Evidence follow the database from here on (#111), a pass every 30 s
+   * that keeps nothing alive and holds no request: a sheet that does not answer only delays them.
+   */
+  recordQueue = startRecordQueue(createRecordQueue({ database: database.database }))
 })
 
-/*
- * The Registr and each Evidence follow the database from here on (#111), a pass every 30 s that
- * keeps nothing alive and holds no request: a sheet that does not answer only delays them.
- */
-const recordQueue = startRecordQueue(createRecordQueue({ database: database.database }))
+let recordQueue: { stop(): Promise<void> } | null = null
 
 let isShuttingDown = false
 
@@ -114,9 +116,11 @@ function shutdown() {
   }
 
   isShuttingDown = true
-  recordQueue.stop()
+  let passUnderWay = recordQueue?.stop() ?? Promise.resolve()
   server.close(() => {
-    Promise.allSettled([assetServer.close(), database.close()]).finally(() => process.exit(0))
+    passUnderWay
+      .then(() => Promise.allSettled([assetServer.close(), database.close()]))
+      .finally(() => process.exit(0))
   })
   server.closeAllConnections()
 }

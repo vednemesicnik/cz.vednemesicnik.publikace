@@ -66,6 +66,15 @@ function failed(response: Response | null, body: Record<string, unknown> = {}): 
   return { error: response === null ? 'no answer' : describe(response, body), ok: false }
 }
 
+/** `N` for the 14th column: the last column a list has, so a clear stays inside its grid. */
+function columnLetter(count: number): string {
+  let letters = ''
+  for (let rest = count; rest > 0; rest = Math.floor((rest - 1) / 26)) {
+    letters = String.fromCharCode(65 + ((rest - 1) % 26)) + letters
+  }
+  return letters
+}
+
 /** `'Redakční doložky'!A1`: a list's name quoted for A1 notation. */
 function rangeOf(title: string, cells: string): string {
   return `'${title.replaceAll("'", "''")}'!${cells}`
@@ -212,14 +221,24 @@ function isWholeList(protection: ProtectedRange, sheetId: number): boolean {
   )
 }
 
-/** All of the list, nothing carved out of it, and nobody but `editor` may edit it. */
-function isTightFor(protection: ProtectedRange, editor: string): boolean {
-  let users = Array.isArray(protection.editors?.users) ? protection.editors.users : []
+/**
+ * All of the list, nothing carved out of it, and nobody may edit it but `editor` and the file's
+ * owners, whom Google lists as editors of every protection and who cannot be taken off one.
+ */
+function isTightFor(
+  protection: ProtectedRange,
+  editor: string,
+  owners: ReadonlySet<string>,
+): boolean {
+  let users = (Array.isArray(protection.editors?.users) ? protection.editors.users : []).map(
+    (user) => String(user).toLowerCase(),
+  )
   let groups = Array.isArray(protection.editors?.groups) ? protection.editors.groups : []
   let carved = Array.isArray(protection.unprotectedRanges) ? protection.unprotectedRanges : []
+  let me = editor.toLowerCase()
   return (
-    users.length === 1 &&
-    String(users[0]).toLowerCase() === editor.toLowerCase() &&
+    users.includes(me) &&
+    users.every((user) => user === me || owners.has(user)) &&
     groups.length === 0 &&
     protection.editors?.domainUsersCanEdit !== true &&
     carved.length === 0 &&
@@ -227,10 +246,37 @@ function isTightFor(protection: ProtectedRange, editor: string): boolean {
   )
 }
 
+/**
+ * The file's owners, by address: none for a file on a shared drive, which belongs to the drive,
+ * and the person whose file it is for a spreadsheet in somebody's Můj disk, as the Registr is.
+ */
+async function ownersOf(
+  call: DriveCall,
+  spreadsheetId: string,
+): Promise<{ error: string; ok: false } | { ok: true; owners: Set<string> }> {
+  let url = new URL(`${FILES_ENDPOINT}/${encodeURIComponent(spreadsheetId)}`)
+  url.searchParams.set('fields', 'owners(emailAddress)')
+  url.searchParams.set('supportsAllDrives', 'true')
+  let response = await call('a spreadsheet’s owners were not looked up', url)
+  if (response === null) return { error: 'no answer', ok: false }
+  let body = await readJson(response)
+  if (!response.ok) return { error: describe(response, body), ok: false }
+  let owners = Array.isArray(body['owners']) ? (body['owners'] as { emailAddress?: unknown }[]) : []
+  return {
+    ok: true,
+    owners: new Set(
+      owners.flatMap((owner) =>
+        typeof owner.emailAddress === 'string' ? [owner.emailAddress.toLowerCase()] : [],
+      ),
+    ),
+  }
+}
+
 async function listTitles(
   call: DriveCall,
   spreadsheetId: string,
   editor: string,
+  owners: ReadonlySet<string>,
 ): Promise<{ error: string; ok: false } | { lists: ListTitle[]; ok: true }> {
   let url = new URL(`${SHEETS_ENDPOINT}/${encodeURIComponent(spreadsheetId)}`)
   url.searchParams.set(
@@ -255,10 +301,10 @@ async function listTitles(
     ).filter((protection) => isWholeList(protection, sheetId))
     return [
       {
-        isProtected: whole.some((protection) => isTightFor(protection, editor)),
+        isProtected: whole.some((protection) => isTightFor(protection, editor, owners)),
         loosened: whole.flatMap((protection) => {
           let id = numberOr0(protection.protectedRangeId)
-          return !isTightFor(protection, editor) && id !== null ? [id] : []
+          return !isTightFor(protection, editor, owners) && id !== null ? [id] : []
         }),
         sheetId,
         title: properties.title,
@@ -312,7 +358,9 @@ export function createRecordSheets(options: RecordSheetsOptions): RecordSheets {
     },
 
     async layOut(spreadsheetId, layouts, layOutOptions = {}) {
-      let titles = await listTitles(call, spreadsheetId, options.editor)
+      let owners = await ownersOf(call, spreadsheetId)
+      if (!owners.ok) return owners
+      let titles = await listTitles(call, spreadsheetId, options.editor, owners.owners)
       if (!titles.ok) return titles
       let ours = new Set(layouts.map((layout) => layout.name))
       let present = new Map(titles.lists.map((list) => [list.title, list]))
@@ -336,6 +384,11 @@ export function createRecordSheets(options: RecordSheetsOptions): RecordSheets {
           }
           if (!existing.isProtected) {
             requests.push(protectionRequest(existing.sheetId, options.editor))
+          }
+          /* Rare by design: a line on every write would say that Google reads a protection back
+             otherwise than this code expects, which the fake cannot show. */
+          if (existing.loosened.length > 0 || !existing.isProtected) {
+            console.info(`[record] the protection of the list ${layout.name} was put back`)
           }
           continue
         }
@@ -384,7 +437,9 @@ export function createRecordSheets(options: RecordSheetsOptions): RecordSheets {
 
       let cleared = await call('a record was not cleared', new URL(`${base}:batchClear`), {
         body: JSON.stringify({
-          ranges: lists.map(({ layout, rows }) => rangeOf(layout.name, `A${rows.length + 2}:ZZ`)),
+          ranges: lists.map(({ layout, rows }) =>
+            rangeOf(layout.name, `A${rows.length + 2}:${columnLetter(layout.headers.length)}`),
+          ),
         }),
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',

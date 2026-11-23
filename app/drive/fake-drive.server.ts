@@ -65,6 +65,9 @@ export type FakeProtection = {
 
 export type FakeSpreadsheet = { id: string; lists: FakeList[] }
 
+/** Whose Můj disk a seeded spreadsheet, the Registr, is in. */
+export const FAKE_SPREADSHEET_OWNER = 'sefredakce@vednemesicnik.test'
+
 function emptyList(sheetId: number, title: string): FakeList {
   return {
     cells: [],
@@ -170,6 +173,8 @@ export function createFakeDrive(): FakeDrive {
   let next = 1
   let calls: string[] = []
   let spreadsheets = new Map<string, FakeSpreadsheet>()
+  /* A file in somebody's Můj disk has an owner; one on a shared drive has none. */
+  let owners = new Map<string, string>()
   let permissions = new Map<string, FakePermission[]>()
   /* Kept beside the files: only a Doc somebody edited or touched has them. */
   let modifiedTimes = new Map<string, Temporal.Instant>()
@@ -326,7 +331,11 @@ export function createFakeDrive(): FakeDrive {
           }
           let list = byId(protectedRange.range.sheetId)
           if (list === undefined) return failure('no such sheet', 400)
-          list.protections.push({ id: next++, users: [...protectedRange.editors.users] })
+          /* Google lists the file's owner among the editors of every protection. */
+          let owner = owners.get(id)
+          let users = [...protectedRange.editors.users]
+          if (owner !== undefined && !users.includes(owner)) users.push(owner)
+          list.protections.push({ id: next++, users })
         } else if (kind === 'deleteProtectedRange') {
           let { protectedRangeId } = value as { protectedRangeId: number }
           let list = lists.find((candidate) =>
@@ -624,8 +633,10 @@ export function createFakeDrive(): FakeDrive {
         return new Response(file.bytes ?? new TextEncoder().encode(file.content ?? ''))
       }
       let isImage = file.mimeType.startsWith('image/')
+      let owner = owners.get(file.id)
       return Response.json({
         id: file.id,
+        owners: owner === undefined ? [] : [{ emailAddress: owner }],
         parents: [file.parentId],
         thumbnailLink: isImage ? `https://${THUMBNAIL_HOST}/thumb/${file.id}=s220` : undefined,
         explicitlyTrashed: file.isTrashed,
@@ -720,6 +731,7 @@ export function createFakeDrive(): FakeDrive {
       })
     },
     seedSpreadsheet(id, name, lists) {
+      owners.set(id, FAKE_SPREADSHEET_OWNER)
       files.set(id, {
         appProperties: {},
         bytes: null,

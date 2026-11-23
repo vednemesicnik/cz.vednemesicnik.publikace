@@ -141,10 +141,17 @@ export async function drainRecordQueue(queue: RecordQueue): Promise<void> {
 
     await queue.marks.markAllIfDue(queue.now())
     for (let mark of await queue.marks.takeDue(queue.now(), RECORDS_PER_PASS)) {
-      let result =
-        mark.kind === 'registry'
-          ? await writeRegistry(queue, sheets)
-          : await writeEvidence(queue, sheets, mark.issueId)
+      /* A throw is a failure of this record alone: it is put off like any other, rather than
+         stopping the pass and coming first again in the next one. */
+      let result: SheetsResult
+      try {
+        result =
+          mark.kind === 'registry'
+            ? await writeRegistry(queue, sheets)
+            : await writeEvidence(queue, sheets, mark.issueId)
+      } catch (error) {
+        result = { error: error instanceof Error ? error.message : String(error), ok: false }
+      }
       if (result.ok) {
         await queue.marks.markWritten(mark)
       } else {
@@ -157,16 +164,26 @@ export async function drainRecordQueue(queue: RecordQueue): Promise<void> {
 
 /**
  * Runs a pass now and every `intervalMs` after, without keeping the process alive. `server.ts`
- * starts it once the port is open; the suite calls `drainRecordQueue` itself.
+ * starts it once the port is open; the suite calls `drainRecordQueue` itself. `stop` waits for
+ * the pass under way, so the database it writes to is closed only after it.
  */
-export function startRecordQueue(queue: RecordQueue, intervalMs = 30_000): { stop(): void } {
+export function startRecordQueue(
+  queue: RecordQueue,
+  intervalMs = 30_000,
+): { stop(): Promise<void> } {
+  let running: Promise<void> = Promise.resolve()
   let run = () => {
-    drainRecordQueue(queue).catch((error: unknown) => {
+    running = drainRecordQueue(queue).catch((error: unknown) => {
       console.error('[record] a pass of the record queue failed:', error)
     })
   }
   run()
   let timer = setInterval(run, intervalMs)
   timer.unref()
-  return { stop: () => clearInterval(timer) }
+  return {
+    stop() {
+      clearInterval(timer)
+      return running
+    },
+  }
 }

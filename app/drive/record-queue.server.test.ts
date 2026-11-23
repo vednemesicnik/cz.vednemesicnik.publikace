@@ -14,6 +14,7 @@ import {
   TEST_REGISTRY_OLD_ROWS,
   type TestApp,
 } from '../test-app.server.ts'
+import { FAKE_SPREADSHEET_OWNER } from './fake-drive.server.ts'
 import { drainRecordQueue } from './record-queue.server.ts'
 
 async function pendingMarks(app: TestApp): Promise<number> {
@@ -69,7 +70,7 @@ describe('the record queue', () => {
       assert.equal(ours?.title, 'Vydání z aplikace')
       assert.deepEqual(
         ours?.protections.map((protection) => protection.users),
-        [[TEST_DRIVE_ACCOUNT]],
+        [[TEST_DRIVE_ACCOUNT, FAKE_SPREADSHEET_OWNER]],
       )
       assert.deepEqual(ours?.cells[1]?.slice(0, 4), [
         'VDM_2026_7',
@@ -126,6 +127,42 @@ describe('the record queue', () => {
       await issues.reopen(issueId)
       await drain(app)
       assert.equal(active(), true)
+    } finally {
+      await app.close()
+    }
+  })
+
+  it('puts off a record whose write throws, and still writes the others in the same pass', async () => {
+    let app = await createTestApp()
+    try {
+      await connectDriveAccount(app)
+      let broken = await seedIssue(app, 'VDM_2026_5')
+      let fine = await seedIssue(app, 'VDM_2026_6')
+      let issues = app.record.issues
+      let queue = {
+        ...app.record,
+        issues: {
+          ...issues,
+          findById: async (id: number) => {
+            if (id === broken) throw new Error('the database refused')
+            return issues.findById(id)
+          },
+        },
+      }
+      /* Two passes: storing the Evidence's ID marks the Registr again during the first. */
+      await drainRecordQueue(queue)
+      await drainRecordQueue(queue)
+
+      let left = await app.database.exec(
+        sql`SELECT kind, issue_id, attempts, last_error FROM record_marks`,
+      )
+      assert.deepEqual(
+        (left.rows ?? []).map((row) => [row['kind'], row['issue_id'], row['attempts']]),
+        [['evidence', broken, 1]],
+      )
+      assert.equal(left.rows?.[0]?.['last_error'], 'the database refused')
+      let found = await createIssueStore(app.database).findById(fine)
+      assert.notEqual(found?.evidenceSpreadsheetId, null)
     } finally {
       await app.close()
     }

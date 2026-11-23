@@ -24,8 +24,9 @@ export type RecordStore = {
   /** Every complete issue's row in the Registr list, oldest first. */
   registryIssues(): Promise<RegistryIssue[]>
   /**
-   * The marks a pass may write now, Evidences before the Registr: creating an Evidence marks the
-   * Registr, so one pass carries both.
+   * The marks a pass may write now: those that never failed first, so records that keep failing
+   * cannot fill a pass, then Evidences before the Registr, since creating an Evidence marks the
+   * Registr and one pass then carries both.
    */
   takeDue(at: Temporal.Instant, limit: number): Promise<RecordMark[]>
   /**
@@ -81,7 +82,7 @@ export function createRecordStore(database: Database): RecordStore {
       let result = await database.exec(
         sql`SELECT * FROM record_marks
             WHERE retry_at IS NULL OR retry_at <= ${stamp(at)}
-            ORDER BY CASE kind WHEN 'evidence' THEN 0 ELSE 1 END, issue_id
+            ORDER BY attempts, CASE kind WHEN 'evidence' THEN 0 ELSE 1 END, issue_id
             LIMIT ${limit}`,
       )
       return (result.rows ?? []).map(toMark)

@@ -58,9 +58,11 @@ let isShuttingDown = false
 function shutdown() {
   if (isShuttingDown) return
   isShuttingDown = true
-  recordQueue.stop()
+  let passUnderWay = recordQueue.stop()
   server.close(() => {
-    Promise.allSettled([assetServer.close(), fakeApp.close()]).finally(() => process.exit(0))
+    passUnderWay
+      .then(() => Promise.allSettled([assetServer.close(), fakeApp.close()]))
+      .finally(() => process.exit(0))
   })
   server.closeAllConnections()
 }

@@ -2,7 +2,7 @@ import * as assert from 'remix/assert'
 import { describe, it } from 'remix/test'
 
 import { ARTICLES_LIST, EVIDENCE_LISTS, REGISTRY_LIST } from '../domain/record.ts'
-import { createFakeDrive } from './fake-drive.server.ts'
+import { createFakeDrive, FAKE_SPREADSHEET_OWNER } from './fake-drive.server.ts'
 import { createRecordSheets } from './sheets.server.ts'
 
 const EDITOR = 'publikace.app@vednemesicnik.test'
@@ -52,7 +52,7 @@ describe('the record’s spreadsheets', () => {
     assert.deepEqual(lists[0]?.dateColumns, ARTICLES_LIST.dateColumns)
   })
 
-  it('lay out only what is missing, so a second time costs one look', async () => {
+  it('lay out only what is missing, so a second time costs two looks', async () => {
     let { drive, sheets } = setup()
     let created = await sheets.findOrCreateEvidence('issue-folder', 7)
     if (!created.ok) throw new Error(created.error)
@@ -60,7 +60,10 @@ describe('the record’s spreadsheets', () => {
     let before = drive.calls.length
 
     assert.deepEqual(await sheets.layOut(created.id, EVIDENCE_LISTS, { isOwn: true }), { ok: true })
-    assert.deepEqual(drive.calls.slice(before), [`GET /v4/spreadsheets/${created.id}`])
+    assert.deepEqual(drive.calls.slice(before), [
+      `GET /drive/v3/files/${created.id}`,
+      `GET /v4/spreadsheets/${created.id}`,
+    ])
   })
 
   it('add the app’s list to the Registr beside Vydání, which keeps every cell', async () => {
@@ -126,13 +129,17 @@ describe('a list of the app’s name that somebody else made', () => {
     let [old, ours] = drive.spreadsheet('registry')?.lists ?? []
     assert.deepEqual(
       ours?.protections.map((protection) => protection.users),
-      [[EDITOR]],
+      [[EDITOR, FAKE_SPREADSHEET_OWNER]],
     )
     assert.deepEqual(old?.protections, [])
 
+    /* Google names the file's owner among the editors; that is not a loosened protection. */
     let before = drive.calls.length
     await sheets.layOut('registry', [REGISTRY_LIST])
-    assert.deepEqual(drive.calls.slice(before), ['GET /v4/spreadsheets/registry'])
+    assert.deepEqual(drive.calls.slice(before), [
+      'GET /drive/v3/files/registry',
+      'GET /v4/spreadsheets/registry',
+    ])
   })
 
   it('loses a protection that lets anybody else in, the app’s own put back in its place', async () => {
@@ -157,7 +164,7 @@ describe('a list of the app’s name that somebody else made', () => {
     await sheets.layOut('registry', [REGISTRY_LIST])
     assert.deepEqual(
       ours().map(({ groups, users }) => ({ groups, users })),
-      [{ groups: undefined, users: [EDITOR] }],
+      [{ groups: undefined, users: [EDITOR, FAKE_SPREADSHEET_OWNER] }],
     )
   })
 })
