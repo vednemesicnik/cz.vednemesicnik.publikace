@@ -9,7 +9,7 @@ import { answeredAtOf } from './consent-patch.server.ts'
 
 /**
  * The answers from _Ke kontrole_ to a provider's or an author's reply (`13d`–`13f`,
- * `20261201120000_consent_answers`). A batch and a clause are answered the same way and differ
+ * `20261202120000_consent_answers`). A batch and a clause are answered the same way and differ
  * only in which row holds the reply and who it goes to.
  */
 
