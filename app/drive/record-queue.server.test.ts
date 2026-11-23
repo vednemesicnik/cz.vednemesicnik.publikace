@@ -67,7 +67,10 @@ describe('the record queue', () => {
       let [old, ours] = app.drive.spreadsheet(TEST_REGISTRY)?.lists ?? []
       assert.deepEqual(old?.cells, TEST_REGISTRY_OLD_ROWS)
       assert.equal(ours?.title, 'Vydání z aplikace')
-      assert.deepEqual(ours?.editors, [TEST_DRIVE_ACCOUNT])
+      assert.deepEqual(
+        ours?.protections.map((protection) => protection.users),
+        [[TEST_DRIVE_ACCOUNT]],
+      )
       assert.deepEqual(ours?.cells[1]?.slice(0, 4), [
         'VDM_2026_7',
         'f-VDM_2026_7',

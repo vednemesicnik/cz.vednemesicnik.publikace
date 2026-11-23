@@ -42,14 +42,12 @@ export type RecordQueue = {
 }
 
 /**
- * What a queue keeps between passes: its lock, and the spreadsheets whose lists it looked at
- * since the last daily rewrite. Looking costs a call, so it is done once a day per spreadsheet,
- * and again after a write of it failed: that is when a list's protection, taken off by hand, is
- * put back.
+ * What a queue keeps between passes: its lock, and whether it said that the Registr is not
+ * configured. Nothing about a spreadsheet is kept: its lists and their protection are looked at
+ * before every write, one read, so a protection taken off by hand is put back by the next write.
  */
 type PassState = {
   hasSaidNoRegistry: boolean
-  laidOut: Set<string>
   lock: ReturnType<typeof createLock>
 }
 
@@ -58,7 +56,7 @@ const states = new WeakMap<RecordQueue, PassState>()
 function stateOf(queue: RecordQueue): PassState {
   let state = states.get(queue)
   if (state === undefined) {
-    state = { hasSaidNoRegistry: false, laidOut: new Set(), lock: createLock() }
+    state = { hasSaidNoRegistry: false, lock: createLock() }
     states.set(queue, state)
   }
   return state
@@ -73,22 +71,19 @@ async function writeEvidence(
   let folderId = issue?.folderIds.issue ?? null
   if (issue === null || issue.completedAt === null || folderId === null) return { ok: true }
 
-  let { laidOut } = stateOf(queue)
   let spreadsheetId = issue.evidenceSpreadsheetId
   if (spreadsheetId === null) {
     let found = await sheets.findOrCreateEvidence(folderId, issueId)
     if (!found.ok) return found
     let made = await sheets.layOut(found.id, EVIDENCE_LISTS, { isOwn: true })
     if (!made.ok) return made
-    laidOut.add(found.id)
     /* Stored only once it is laid out, so a write that stopped halfway lays it out again. The
        ID marks the Registr, whose row then names it. */
     await queue.issues.setEvidence(issueId, found.id)
     spreadsheetId = found.id
-  } else if (!laidOut.has(spreadsheetId)) {
+  } else {
     let checked = await sheets.layOut(spreadsheetId, EVIDENCE_LISTS, { isOwn: true })
     if (!checked.ok) return checked
-    laidOut.add(spreadsheetId)
   }
 
   let articles = await queue.articles.listCreated(issueId)
@@ -107,13 +102,11 @@ async function writeEvidence(
     ]
   })
 
-  let written = await sheets.write(spreadsheetId, [
+  return sheets.write(spreadsheetId, [
     { layout: ARTICLES_LIST, rows: articleRows(articles) },
     { layout: CLAUSES_LIST, rows: clauseRows(clauses) },
     { layout: ARTWORKS_LIST, rows: artworkRows(batches) },
   ])
-  if (!written.ok) laidOut.delete(spreadsheetId)
-  return written
 }
 
 async function writeRegistry(queue: RecordQueue, sheets: RecordSheets): Promise<SheetsResult> {
@@ -125,15 +118,10 @@ async function writeRegistry(queue: RecordQueue, sheets: RecordSheets): Promise<
     }
     return { ok: true }
   }
-  if (!state.laidOut.has(queue.registryId)) {
-    let checked = await sheets.layOut(queue.registryId, [REGISTRY_LIST])
-    if (!checked.ok) return checked
-    state.laidOut.add(queue.registryId)
-  }
+  let checked = await sheets.layOut(queue.registryId, [REGISTRY_LIST])
+  if (!checked.ok) return checked
   let rows = registryRows(await queue.marks.registryIssues(), queue.origin)
-  let written = await sheets.write(queue.registryId, [{ layout: REGISTRY_LIST, rows }])
-  if (!written.ok) state.laidOut.delete(queue.registryId)
-  return written
+  return sheets.write(queue.registryId, [{ layout: REGISTRY_LIST, rows }])
 }
 
 function describeMark(mark: RecordMark): string {
@@ -151,7 +139,7 @@ export async function drainRecordQueue(queue: RecordQueue): Promise<void> {
     if (!token.ok) return
     let sheets = queue.sheets(token.accessToken)
 
-    if (await queue.marks.markAllIfDue(queue.now())) stateOf(queue).laidOut.clear()
+    await queue.marks.markAllIfDue(queue.now())
     for (let mark of await queue.marks.takeDue(queue.now(), RECORDS_PER_PASS)) {
       let result =
         mark.kind === 'registry'

@@ -175,24 +175,44 @@ function protectionRequest(sheetId: number, editor: string): unknown {
 }
 
 /**
- * A list as `layOut` sees it: its title, and whether a protection covers all of it with the app's
- * account as its only editor. A list of the app's name that somebody else made, or whose
- * protection was loosened, is then protected again rather than trusted by its title.
+ * A list as `layOut` sees it: its title, whether a protection covers all of it with the app's
+ * account as its only editor, and the whole-list protections that let anybody else in. A list of
+ * the app's name that somebody else made, or whose protection was loosened, is then protected
+ * again rather than trusted by its title, and the loosened protection goes.
  */
-type ListTitle = { isProtected: boolean; sheetId: number; title: string }
+type ListTitle = {
+  isProtected: boolean
+  loosened: readonly number[]
+  sheetId: number
+  title: string
+}
 
 type ProtectedRange = {
-  editors?: { users?: unknown }
+  editors?: { domainUsersCanEdit?: unknown; groups?: unknown; users?: unknown }
+  protectedRangeId?: unknown
   range?: Record<string, unknown>
+  unprotectedRanges?: unknown
   warningOnly?: unknown
 }
 
-function isWholeListFor(protection: ProtectedRange, sheetId: number, editor: string): boolean {
+function isWholeList(protection: ProtectedRange, sheetId: number): boolean {
   let range = protection.range ?? {}
-  let isWhole = Object.keys(range).every((key) => key === 'sheetId') && range['sheetId'] === sheetId
+  return Object.keys(range).every((key) => key === 'sheetId') && range['sheetId'] === sheetId
+}
+
+/** All of the list, nothing carved out of it, and nobody but `editor` may edit it. */
+function isTightFor(protection: ProtectedRange, editor: string): boolean {
   let users = Array.isArray(protection.editors?.users) ? protection.editors.users : []
-  let isOnlyEditor = users.length === 1 && String(users[0]).toLowerCase() === editor.toLowerCase()
-  return isWhole && isOnlyEditor && protection.warningOnly !== true
+  let groups = Array.isArray(protection.editors?.groups) ? protection.editors.groups : []
+  let carved = Array.isArray(protection.unprotectedRanges) ? protection.unprotectedRanges : []
+  return (
+    users.length === 1 &&
+    String(users[0]).toLowerCase() === editor.toLowerCase() &&
+    groups.length === 0 &&
+    protection.editors?.domainUsersCanEdit !== true &&
+    carved.length === 0 &&
+    protection.warningOnly !== true
+  )
 }
 
 async function listTitles(
@@ -203,7 +223,7 @@ async function listTitles(
   let url = new URL(`${SHEETS_ENDPOINT}/${encodeURIComponent(spreadsheetId)}`)
   url.searchParams.set(
     'fields',
-    'sheets(properties(sheetId,title),protectedRanges(range,editors,warningOnly))',
+    'sheets(properties(sheetId,title),protectedRanges(protectedRangeId,range,unprotectedRanges,editors,warningOnly))',
   )
   let response = await call('a spreadsheet was not looked at', url)
   if (response === null) return { error: 'no answer', ok: false }
@@ -218,10 +238,17 @@ async function listTitles(
     }
     if (typeof properties?.sheetId !== 'number' || typeof properties.title !== 'string') return []
     let sheetId = properties.sheetId
-    let protections = Array.isArray(protectedRanges) ? (protectedRanges as ProtectedRange[]) : []
+    let whole = (
+      Array.isArray(protectedRanges) ? (protectedRanges as ProtectedRange[]) : []
+    ).filter((protection) => isWholeList(protection, sheetId))
     return [
       {
-        isProtected: protections.some((protection) => isWholeListFor(protection, sheetId, editor)),
+        isProtected: whole.some((protection) => isTightFor(protection, editor)),
+        loosened: whole.flatMap((protection) =>
+          !isTightFor(protection, editor) && typeof protection.protectedRangeId === 'number'
+            ? [protection.protectedRangeId]
+            : [],
+        ),
         sheetId,
         title: properties.title,
       },
@@ -293,6 +320,9 @@ export function createRecordSheets(options: RecordSheetsOptions): RecordSheets {
       for (let layout of layouts) {
         let existing = present.get(layout.name)
         if (existing !== undefined) {
+          for (let protectedRangeId of existing.loosened) {
+            requests.push({ deleteProtectedRange: { protectedRangeId } })
+          }
           if (!existing.isProtected) {
             requests.push(protectionRequest(existing.sheetId, options.editor))
           }

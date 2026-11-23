@@ -47,13 +47,20 @@ export type FakeList = {
   cells: (boolean | number | string)[][]
   checkboxColumn: number | null
   dateColumns: number[]
-  /** Who may edit it once it is protected; `null` while it is not. */
-  editors: string[] | null
   frozenRows: number
   isHeaderStyled: boolean
+  /** The protections of the whole list, each with who may edit it. */
+  protections: FakeProtection[]
   sheetId: number
   statusValues: string[] | null
   title: string
+}
+
+export type FakeProtection = {
+  domainUsersCanEdit?: boolean
+  groups?: string[]
+  id: number
+  users: string[]
 }
 
 export type FakeSpreadsheet = { id: string; lists: FakeList[] }
@@ -63,9 +70,9 @@ function emptyList(sheetId: number, title: string): FakeList {
     cells: [],
     checkboxColumn: null,
     dateColumns: [],
-    editors: null,
     frozenRows: 0,
     isHeaderStyled: false,
+    protections: [],
     sheetId,
     statusValues: null,
     title,
@@ -127,6 +134,8 @@ export type FakeDrive = {
   ): void
   /** A spreadsheet's lists as the Sheets calls left them. */
   spreadsheet(id: string): FakeSpreadsheet | undefined
+  /** A protection somebody put on a whole list by hand. */
+  protect(spreadsheetId: string, title: string, protection: Omit<FakeProtection, 'id'>): void
   /** Adds a grant to a file, as somebody sharing it would; a file starts with none. */
   share(id: string, permission: FakePermission): void
   trash(id: string): void
@@ -238,10 +247,13 @@ export function createFakeDrive(): FakeDrive {
 
     if (method === 'GET' && rest === '') {
       return Response.json({
-        sheets: sheet.lists.map(({ editors, sheetId, title }) => ({
+        sheets: sheet.lists.map(({ protections, sheetId, title }) => ({
           properties: { sheetId, title },
-          protectedRanges:
-            editors === null ? [] : [{ editors: { users: editors }, range: { sheetId } }],
+          protectedRanges: protections.map(({ id, ...editors }) => ({
+            editors,
+            protectedRangeId: id,
+            range: { sheetId },
+          })),
         })),
       })
     }
@@ -249,7 +261,11 @@ export function createFakeDrive(): FakeDrive {
     if (method === 'POST' && rest === ':batchUpdate') {
       /* All or nothing, as Sheets applies a batch: worked on copies and kept only if it all
          applies. */
-      let lists = sheet.lists.map((list) => ({ ...list, dateColumns: [...list.dateColumns] }))
+      let lists = sheet.lists.map((list) => ({
+        ...list,
+        dateColumns: [...list.dateColumns],
+        protections: [...list.protections],
+      }))
       let byId = (sheetId: unknown) => lists.find((list) => list.sheetId === sheetId)
       type Range = { sheetId?: number; startColumnIndex?: number; endRowIndex?: number }
       for (let request of body['requests'] as Record<string, Record<string, unknown>>[]) {
@@ -305,7 +321,16 @@ export function createFakeDrive(): FakeDrive {
           }
           let list = byId(protectedRange.range.sheetId)
           if (list === undefined) return failure('no such sheet', 400)
-          list.editors = [...protectedRange.editors.users]
+          list.protections.push({ id: next++, users: [...protectedRange.editors.users] })
+        } else if (kind === 'deleteProtectedRange') {
+          let { protectedRangeId } = value as { protectedRangeId: number }
+          let list = lists.find((candidate) =>
+            candidate.protections.some((protection) => protection.id === protectedRangeId),
+          )
+          if (list === undefined) return failure('no such protected range', 400)
+          list.protections = list.protections.filter(
+            (protection) => protection.id !== protectedRangeId,
+          )
         } else if (kind !== 'addConditionalFormatRule') {
           return failure(`unexpected request ${String(kind)}`, 400)
         }
@@ -714,6 +739,12 @@ export function createFakeDrive(): FakeDrive {
       permissions.set(id, [...(permissions.get(id) ?? []), permission])
     },
     spreadsheet: (id) => spreadsheets.get(id),
+    protect(spreadsheetId, title, protection) {
+      let list = spreadsheets
+        .get(spreadsheetId)
+        ?.lists.find((candidate) => candidate.title === title)
+      list?.protections.push({ ...protection, id: next++ })
+    },
     trash(id) {
       let file = files.get(id)
       if (file !== undefined) file.isTrashed = true

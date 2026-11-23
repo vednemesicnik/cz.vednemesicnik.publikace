@@ -40,7 +40,10 @@ describe('the record’s spreadsheets', () => {
       ['Články', 'Redakční doložky', 'Obrazová díla'],
     )
     for (let list of lists) {
-      assert.deepEqual(list.editors, [EDITOR])
+      assert.deepEqual(
+        list.protections.map((protection) => protection.users),
+        [[EDITOR]],
+      )
       assert.equal(list.frozenRows, 1)
       assert.equal(list.isHeaderStyled, true)
     }
@@ -77,7 +80,7 @@ describe('the record’s spreadsheets', () => {
     let [old, ours] = drive.spreadsheet('registry')?.lists ?? []
     assert.equal(old?.title, 'Vydání')
     assert.deepEqual(old?.cells, oldRows)
-    assert.equal(old?.editors, null)
+    assert.deepEqual(old?.protections, [])
     assert.equal(ours?.title, 'Vydání z aplikace')
     assert.equal(ours?.checkboxColumn, 3)
     assert.deepEqual(ours?.cells, [[...REGISTRY_LIST.headers], ...rows])
@@ -121,11 +124,40 @@ describe('a list of the app’s name that somebody else made', () => {
 
     assert.deepEqual(await sheets.layOut('registry', [REGISTRY_LIST]), { ok: true })
     let [old, ours] = drive.spreadsheet('registry')?.lists ?? []
-    assert.deepEqual(ours?.editors, [EDITOR])
-    assert.equal(old?.editors, null)
+    assert.deepEqual(
+      ours?.protections.map((protection) => protection.users),
+      [[EDITOR]],
+    )
+    assert.deepEqual(old?.protections, [])
 
     let before = drive.calls.length
     await sheets.layOut('registry', [REGISTRY_LIST])
     assert.deepEqual(drive.calls.slice(before), ['GET /v4/spreadsheets/registry'])
+  })
+
+  it('loses a protection that lets anybody else in, the app’s own put back in its place', async () => {
+    let { drive, sheets } = setup()
+    drive.seedSpreadsheet('registry', 'Registr', [{ cells: [], title: 'Vydání' }])
+    await sheets.layOut('registry', [REGISTRY_LIST])
+    let ours = () => drive.spreadsheet('registry')?.lists[1]?.protections ?? []
+    let tight = ours()[0]
+    drive.protect('registry', 'Vydání z aplikace', {
+      users: [EDITOR, 'sefredaktor@vednemesicnik.test'],
+    })
+    drive.protect('registry', 'Vydání z aplikace', { domainUsersCanEdit: true, users: [EDITOR] })
+
+    await sheets.layOut('registry', [REGISTRY_LIST])
+    assert.deepEqual(ours(), [tight])
+
+    drive.spreadsheet('registry')?.lists[1]?.protections.splice(0)
+    drive.protect('registry', 'Vydání z aplikace', {
+      groups: ['redakce@vednemesicnik.test'],
+      users: [EDITOR],
+    })
+    await sheets.layOut('registry', [REGISTRY_LIST])
+    assert.deepEqual(
+      ours().map(({ groups, users }) => ({ groups, users })),
+      [{ groups: undefined, users: [EDITOR] }],
+    )
   })
 })

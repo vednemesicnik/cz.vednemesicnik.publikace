@@ -436,7 +436,10 @@ export function artworkRows(batches: readonly RecordBatch[]): Cell[][] {
     })
 }
 
-/** At most this many records a pass writes: two Sheets calls each, under 60 writes a minute. */
+/**
+ * At most this many records a pass writes: one read of the lists and two writes each, under
+ * Sheets' 60 writes a minute.
+ */
 export const RECORDS_PER_PASS = 20
 
 /**
