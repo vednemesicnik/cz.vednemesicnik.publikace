@@ -20,7 +20,7 @@ import type { ApprovedCount } from '../domain/issue.ts'
 import type { DigestCandidate } from '../domain/proofreading-digest.ts'
 import { type BatchReport, decideReport } from '../domain/reply-check.ts'
 import { parseStamp, stamp } from '../domain/time.ts'
-import { applyConsentPatch } from './consent-patch.server.ts'
+import { answeredAtOf, applyConsentPatch } from './consent-patch.server.ts'
 import { insertLink } from './links.server.ts'
 
 /**
@@ -745,6 +745,7 @@ async function withAuthors(db: Database, rows: readonly Row[]): Promise<ArticleR
 function toClauseStatus(row: Row): ClauseStatus {
   let state = String(row['state'])
   return {
+    answeredAt: answeredAtOf(row),
     approvedAt: parseStamp(row['approved_at']),
     archiveFailedAt: parseStamp(row['archive_failed_at']),
     consentVerifiedAt: parseStamp(row['consent_verified_at']),
@@ -757,6 +758,7 @@ function toClauseStatus(row: Row): ClauseStatus {
 /** One clause as the open row of the issue detail reads it (`12b`). */
 function toClauseDetail(row: Row): ClauseDetail {
   return {
+    answeredAt: answeredAtOf(row),
     approvedAt: parseStamp(row['approved_at']),
     archiveError: text(row['archive_error']),
     authorEmail: String(row['author_email']),
@@ -838,7 +840,8 @@ const WAITS_ON_EDITORS = sql`c.approved_at IS NULL AND c.state != 'pending' AND 
     c.archive_failed_at IS NOT NULL
     OR (c.reply_message_id IS NULL AND c.state = 'failed')
     OR (c.reply_message_id IS NOT NULL AND c.consent_verified_at IS NULL
-        AND c.is_exact_consent = 0)
+        AND c.is_exact_consent = 0
+        AND (c.answered_message_id IS NULL OR c.answered_message_id != c.reply_message_id))
   )`
 
 /** The standing markings `f` with at least one clause and every clause approved. */

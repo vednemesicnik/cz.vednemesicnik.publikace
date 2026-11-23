@@ -71,8 +71,11 @@ export type TestApp = {
   directory: AccessDirectory
   /** Google as the app sees it in the suite: the token endpoint and Drive's files. */
   drive: FakeDrive
-  /** While set, the Mailer keeps every message but answers that it was not sent. */
-  failMail(isFailing: boolean): void
+  /**
+   * While set, the Mailer keeps every message but answers that it was not sent: with the error
+   * given, or with one that may pass on a later try.
+   */
+  failMail(failure: boolean | string): void
   /** The router itself, for a request that is not a browser's: `pnpm app:fake` serves it. */
   fetch(request: Request): Promise<Response>
   /** Every message the app handed the Mailer, in order, sent or not. */
@@ -126,7 +129,7 @@ export async function createTestApp(): Promise<TestApp> {
   let drive = createFakeDrive()
   drive.seedTemplate(TEST_TEMPLATE, 'TEMPLATE__Publication__Article')
   let mail: MailMessage[] = []
-  let isMailFailing = false
+  let mailFailure: string | null = null
   let router = createAppRouter({
     checkMembership,
     database: opened.database,
@@ -138,7 +141,8 @@ export async function createTestApp(): Promise<TestApp> {
     issuesFolderId: TEST_ISSUES_FOLDER,
     mailer: async (message) => {
       mail.push(message)
-      return isMailFailing ? { error: 'the fake Mailer is failing', ok: false } : { ok: true }
+      if (mailFailure === null) return { ok: true }
+      return { error: mailFailure, ok: false }
     },
     jobAccount: TEST_DRIVE_ACCOUNT,
     templateId: TEST_TEMPLATE,
@@ -245,8 +249,9 @@ export async function createTestApp(): Promise<TestApp> {
     directory: createAccessDirectory(opened.database),
     drive,
     driveAccount: createDriveAccountStore(opened.database, TEST_DRIVE_TOKEN_KEY),
-    failMail(isFailing) {
-      isMailFailing = isFailing
+    failMail(failure) {
+      mailFailure =
+        failure === false ? null : failure === true ? 'the fake Mailer is failing' : failure
     },
     fetch: (request) => router.fetch(request),
     mail,
