@@ -357,7 +357,9 @@ The Registr and each Evidence follow the database through the record queue (#111
    in place (_Dopsáno_ among those of _Články_), and _Otevřít Evidenci_ first in the issue's „⋯“.
 2. The test Registr has a list _Vydání z aplikace_ with the issue, _Aktivní_ ticked and _ID
    tabulky_ the Evidence. The list _Vydání_ shows no new version in the version history.
-3. As a tester who is not `publikace.app@`, try to type into either list: the sheet refuses.
+3. As a tester who is not `publikace.app@`, try to type into either list: the sheet refuses. The
+   log has no `[record] the protection of the list … was put back` after the first write: one
+   on every write would mean Google reads a protection back otherwise than the fake does.
 4. Create an article, hand it over, mark its final version and upload artworks: each shows in
    the Evidence within a minute, in the states the scripts' Evidences use.
 5. Close the issue: _Aktivní_ is cleared. Reopen it: ticked again.
