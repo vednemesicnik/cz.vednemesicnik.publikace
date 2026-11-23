@@ -22,7 +22,8 @@ export type FakeFile = FakeFolder & {
 
 /**
  * One kind of call, for failing it on purpose: `upload` is a small multipart file, `store` a
- * resumable one (an artwork, a licence PDF), `import` a Doc made from HTML.
+ * resumable one (an artwork, a licence PDF), `import` a Doc made from HTML, `sheets` every call to
+ * the Sheets API and the creation of a spreadsheet.
  */
 export const FAKE_STEPS = [
   'copy',
@@ -33,12 +34,43 @@ export const FAKE_STEPS = [
   'preview',
   'replace',
   'revisions',
+  'sheets',
   'store',
   'trash',
   'upload',
 ] as const
 
 export type FakeStep = (typeof FAKE_STEPS)[number]
+
+/** One list of a fake spreadsheet: its cells and what laying it out set on it. */
+export type FakeList = {
+  cells: (boolean | number | string)[][]
+  checkboxColumn: number | null
+  dateColumns: number[]
+  /** Who may edit it once it is protected; `null` while it is not. */
+  editors: string[] | null
+  frozenRows: number
+  isHeaderStyled: boolean
+  sheetId: number
+  statusValues: string[] | null
+  title: string
+}
+
+export type FakeSpreadsheet = { id: string; lists: FakeList[] }
+
+function emptyList(sheetId: number, title: string): FakeList {
+  return {
+    cells: [],
+    checkboxColumn: null,
+    dateColumns: [],
+    editors: null,
+    frozenRows: 0,
+    isHeaderStyled: false,
+    sheetId,
+    statusValues: null,
+    title,
+  }
+}
 
 /** One grant on a file, in the fields `permissions.list` answers with. */
 export type FakePermission = {
@@ -87,6 +119,14 @@ export type FakeDrive = {
   seedDoc(id: string, name: string, parentId: string): void
   /** A file to copy from, as the article template is on the shared drive. */
   seedTemplate(id: string, name: string): void
+  /** A spreadsheet that exists already, as the Registr does, with its lists and their cells. */
+  seedSpreadsheet(
+    id: string,
+    name: string,
+    lists: { cells: (boolean | number | string)[][]; title: string }[],
+  ): void
+  /** A spreadsheet's lists as the Sheets calls left them. */
+  spreadsheet(id: string): FakeSpreadsheet | undefined
   /** Adds a grant to a file, as somebody sharing it would; a file starts with none. */
   share(id: string, permission: FakePermission): void
   trash(id: string): void
@@ -94,6 +134,7 @@ export type FakeDrive = {
 
 const FOLDER_TYPE = 'application/vnd.google-apps.folder'
 const DOC_TYPE = 'application/vnd.google-apps.document'
+const SPREADSHEET_TYPE = 'application/vnd.google-apps.spreadsheet'
 const THUMBNAIL_HOST = 'lh3.googleusercontent.test'
 
 /** What the fake exports a Doc as: recognisable, and different for every Doc. */
@@ -119,6 +160,7 @@ export function createFakeDrive(): FakeDrive {
   let isDown = false
   let next = 1
   let calls: string[] = []
+  let spreadsheets = new Map<string, FakeSpreadsheet>()
   let permissions = new Map<string, FakePermission[]>()
   /* Kept beside the files: only a Doc somebody edited or touched has them. */
   let modifiedTimes = new Map<string, Temporal.Instant>()
@@ -170,6 +212,135 @@ export function createFakeDrive(): FakeDrive {
     return Response.json({ id })
   }
 
+  /** The list a range like `'Redakční doložky'!A14:ZZ` names, and the row it starts at. */
+  function listOf(
+    sheet: FakeSpreadsheet,
+    range: string,
+  ): { list: FakeList; row: number } | undefined {
+    let match = /^'((?:[^']|'')*)'!A(\d+)/.exec(range)
+    let title = match?.[1]?.replaceAll("''", "'")
+    let list = sheet.lists.find((candidate) => candidate.title === title)
+    return list === undefined ? undefined : { list, row: Number(match?.[2]) }
+  }
+
+  /** The four calls the record makes of the Sheets API, answered from memory. */
+  function sheetsCall(url: URL, method: string, init: RequestInit | undefined): Response {
+    if (failingSteps.has('sheets')) return failure('down')
+    let match = /^\/v4\/spreadsheets\/([^/:]+)(.*)$/.exec(url.pathname)
+    let id = decodeURIComponent(match?.[1] ?? '')
+    let file = files.get(id)
+    let sheet = spreadsheets.get(id)
+    if (file === undefined || sheet === undefined || isBinned(file)) {
+      return failure('Requested entity was not found.', 404)
+    }
+    let rest = match?.[2] ?? ''
+    let body = method === 'POST' ? (JSON.parse(String(init?.body)) as Record<string, unknown>) : {}
+
+    if (method === 'GET' && rest === '') {
+      return Response.json({
+        sheets: sheet.lists.map(({ sheetId, title }) => ({ properties: { sheetId, title } })),
+      })
+    }
+
+    if (method === 'POST' && rest === ':batchUpdate') {
+      /* All or nothing, as Sheets applies a batch: worked on copies and kept only if it all
+         applies. */
+      let lists = sheet.lists.map((list) => ({ ...list, dateColumns: [...list.dateColumns] }))
+      let byId = (sheetId: unknown) => lists.find((list) => list.sheetId === sheetId)
+      type Range = { sheetId?: number; startColumnIndex?: number; endRowIndex?: number }
+      for (let request of body['requests'] as Record<string, Record<string, unknown>>[]) {
+        let [kind, value] = Object.entries(request)[0] ?? []
+        if (kind === 'addSheet') {
+          let properties = (value as { properties: { sheetId: number; title: string } }).properties
+          if (
+            lists.some(
+              (list) => list.title === properties.title || list.sheetId === properties.sheetId,
+            )
+          ) {
+            return failure(`A sheet with the name "${properties.title}" already exists.`, 400)
+          }
+          lists.push(emptyList(properties.sheetId, properties.title))
+        } else if (kind === 'updateSheetProperties') {
+          let { fields, properties } = value as {
+            fields: string
+            properties: {
+              gridProperties?: { frozenRowCount: number }
+              sheetId: number
+              title?: string
+            }
+          }
+          let list = byId(properties.sheetId)
+          if (list === undefined) return failure('no such sheet', 400)
+          if (fields === 'title' && properties.title !== undefined) list.title = properties.title
+          if (properties.gridProperties !== undefined) {
+            list.frozenRows = properties.gridProperties.frozenRowCount
+          }
+        } else if (kind === 'repeatCell') {
+          let { cell, range } = value as {
+            cell: { userEnteredFormat: { numberFormat?: unknown } }
+            range: Range
+          }
+          let list = byId(range.sheetId)
+          if (list === undefined) return failure('no such sheet', 400)
+          if (range.endRowIndex === 1) list.isHeaderStyled = true
+          if (cell.userEnteredFormat.numberFormat !== undefined) {
+            list.dateColumns.push(range.startColumnIndex ?? 0)
+          }
+        } else if (kind === 'setDataValidation') {
+          let { range, rule } = value as {
+            range: Range
+            rule: { condition: { type: string; values?: { userEnteredValue: string }[] } }
+          }
+          let list = byId(range.sheetId)
+          if (list === undefined) return failure('no such sheet', 400)
+          if (rule.condition.type === 'BOOLEAN') list.checkboxColumn = range.startColumnIndex ?? 0
+          else list.statusValues = (rule.condition.values ?? []).map((v) => v.userEnteredValue)
+        } else if (kind === 'addProtectedRange') {
+          let { protectedRange } = value as {
+            protectedRange: { editors: { users: string[] }; range: Range }
+          }
+          let list = byId(protectedRange.range.sheetId)
+          if (list === undefined) return failure('no such sheet', 400)
+          list.editors = [...protectedRange.editors.users]
+        } else if (kind !== 'addConditionalFormatRule') {
+          return failure(`unexpected request ${String(kind)}`, 400)
+        }
+      }
+      sheet.lists = lists
+      return Response.json({ spreadsheetId: id })
+    }
+
+    if (method === 'POST' && rest === '/values:batchUpdate') {
+      if (body['valueInputOption'] !== 'RAW') return failure('the fake takes RAW only', 400)
+      let data = body['data'] as { range: string; values: (boolean | number | string)[][] }[]
+      let targets = data.map((entry) => ({ entry, target: listOf(sheet, entry.range) }))
+      if (targets.some(({ target }) => target === undefined || target.row !== 1)) {
+        return failure('Unable to parse range', 400)
+      }
+      for (let { entry, target } of targets) {
+        if (target === undefined) continue
+        target.list.cells = [
+          ...entry.values.map((row) => [...row]),
+          ...target.list.cells.slice(entry.values.length),
+        ]
+      }
+      return Response.json({ spreadsheetId: id })
+    }
+
+    if (method === 'POST' && rest === '/values:batchClear') {
+      let ranges = body['ranges'] as string[]
+      let targets = ranges.map((range) => listOf(sheet, range))
+      if (targets.some((target) => target === undefined))
+        return failure('Unable to parse range', 400)
+      for (let target of targets) {
+        if (target !== undefined) target.list.cells = target.list.cells.slice(0, target.row - 1)
+      }
+      return Response.json({ spreadsheetId: id })
+    }
+
+    return failure('unexpected call', 400)
+  }
+
   let fetch: typeof globalThis.fetch = async (input, init) => {
     let url = new URL(input instanceof Request ? input.url : String(input))
     let method = init?.method ?? 'GET'
@@ -200,6 +371,8 @@ export function createFakeDrive(): FakeDrive {
       }
       return done('replace', doc.id)
     }
+
+    if (url.hostname === 'sheets.googleapis.com') return sheetsCall(url, method, init)
 
     if (url.hostname === THUMBNAIL_HOST) {
       if (failingSteps.has('preview')) return failure('down')
@@ -270,8 +443,26 @@ export function createFakeDrive(): FakeDrive {
     if (method === 'POST' && url.pathname === '/drive/v3/files') {
       let body = JSON.parse(String(init?.body)) as {
         appProperties?: Record<string, string>
+        mimeType?: string
         name: string
         parents: string[]
+      }
+      if (body.mimeType === SPREADSHEET_TYPE) {
+        if (!isOnSharedDrives) return failure('File not found', 404)
+        if (failingSteps.has('sheets')) return failure('down')
+        let sheet = add(
+          {
+            appProperties: body.appProperties ?? {},
+            content: null,
+            copiedFrom: null,
+            mimeType: SPREADSHEET_TYPE,
+            name: body.name,
+            parentId: body.parents[0] ?? '',
+          },
+          'sheet',
+        )
+        spreadsheets.set(sheet.id, { id: sheet.id, lists: [emptyList(0, 'List 1')] })
+        return done('sheets', sheet.id)
       }
       if (failingNames.has(body.name) || failingSteps.has('folder')) return failure('down')
 
@@ -494,9 +685,31 @@ export function createFakeDrive(): FakeDrive {
         replacements: [],
       })
     },
+    seedSpreadsheet(id, name, lists) {
+      files.set(id, {
+        appProperties: {},
+        bytes: null,
+        content: null,
+        copiedFrom: null,
+        id,
+        isTrashed: false,
+        mimeType: SPREADSHEET_TYPE,
+        name,
+        parentId: 'fake-registry-folder',
+        replacements: [],
+      })
+      spreadsheets.set(id, {
+        id,
+        lists: lists.map((list, index) => ({
+          ...emptyList(index, list.title),
+          cells: list.cells.map((row) => [...row]),
+        })),
+      })
+    },
     share(id, permission) {
       permissions.set(id, [...(permissions.get(id) ?? []), permission])
     },
+    spreadsheet: (id) => spreadsheets.get(id),
     trash(id) {
       let file = files.get(id)
       if (file !== undefined) file.isTrashed = true
