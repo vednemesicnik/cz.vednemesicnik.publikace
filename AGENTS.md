@@ -23,7 +23,9 @@ PDF and new requests in place of the old ones, which stop counting (#90); and on
 agreed, a revision of the Doc after its PDF, which the issue detail asks Drive about as it opens,
 makes the article _Upraveno po schválení_ with _Označit novou verzi…_ in its row (#101); and an
 issue closed from either „⋯“, which takes its links from the newsroom and its articles from the
-jobs, and reopened with the same links (#106). Nothing runs on Fly.io yet, and the background jobs still read the sheets,
+jobs, and reopened with the same links (#106); and a reply in _Ke kontrole_ answered from its
+card, which the Mailer sends inside the thread of the request and which puts the provider or the
+author on the move until they write again (#31). Nothing runs on Fly.io yet, and the background jobs still read the sheets,
 except the artwork reply check, the article approvals and the proofreaders' digest, which go
 through the app's API and whose runs
 `/settings/jobs` shows, with a banner over every screen once two in a row failed (once, for the
