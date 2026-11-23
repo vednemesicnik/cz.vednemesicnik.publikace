@@ -136,11 +136,8 @@ export type TestBrowser = {
  * browser that keeps cookies. Nothing leaves the process.
  *
  * The browser's requests come from `appOrigin()`, the origin CSRF checks them against, so the
- * same harness works on another port when `APP_ORIGIN` names it.
- */
-/**
- * An app on an in-memory database and a fake Drive. `overrides` swaps a dependency for one test,
- * such as an empty `registrySpreadsheetId` for a deployment without a Registr.
+ * same harness works on another port when `APP_ORIGIN` names it. `overrides` swaps a dependency
+ * for one test, such as an empty `registrySpreadsheetId` for a deployment without a Registr.
  */
 export async function createTestApp(
   overrides: Pick<Partial<AppDependencies>, 'registrySpreadsheetId'> = {},
