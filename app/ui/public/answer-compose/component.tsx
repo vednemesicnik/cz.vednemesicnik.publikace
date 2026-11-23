@@ -118,8 +118,6 @@ export const AnswerCompose = clientEntry(
 
     function open(): void {
       isOpen = true
-      let { actions } = others()
-      if (actions !== null) actions.hidden = true
       handle.update()
       requestAnimationFrame(() => field?.focus())
     }
@@ -127,10 +125,8 @@ export const AnswerCompose = clientEntry(
     function close(): void {
       isOpen = false
       if (field !== null && handle.props.mode === 'write') field.value = ''
-      let { actions, opener } = others()
-      if (actions !== null) actions.hidden = false
       handle.update()
-      requestAnimationFrame(() => opener?.focus())
+      requestAnimationFrame(() => others().opener?.focus())
     }
 
     handle.frame.addEventListener(
@@ -145,8 +141,27 @@ export const AnswerCompose = clientEntry(
       { signal: handle.signal },
     )
 
+    /*
+     * Whether the server drew the form open last time. A reload of the page keeps this island's
+     * state and hands it new props, so a change of that answer wins over what was clicked here;
+     * the same answer again leaves the form as the editor left it.
+     */
+    let drawnOpen = handle.props.isOpen
+
+    /* The island alone shows or hides the card's actions, after every render, so the two never
+       stand on the card at once whatever the server drew. */
+    function syncActions(): void {
+      let { actions } = others()
+      if (actions !== null) actions.hidden = isOpen
+    }
+
     return () => {
       let props = handle.props
+      if (props.isOpen !== drawnOpen) {
+        drawnOpen = props.isOpen
+        isOpen = props.isOpen
+      }
+      handle.queueTask(syncActions)
       let fieldId = `reply-${props.anchor}-text`
       let hintId = `${fieldId}-hint`
       let errorId = `${fieldId}-error`

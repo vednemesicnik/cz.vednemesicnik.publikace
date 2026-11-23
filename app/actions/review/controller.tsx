@@ -17,9 +17,8 @@ import {
   UNSENT_ANSWER_TITLE,
   unsentAnswerLine,
 } from '../../domain/answer.ts'
-import { APPROVAL_SEND_JOB } from '../../domain/approvals.ts'
+import { answeredLine, APPROVAL_SEND_JOB, WAITING_CLAUSE_LABEL } from '../../domain/approvals.ts'
 import { ARTWORK_STATE_LABELS, batchStateDetail, replyExcerpt } from '../../domain/artwork.ts'
-import { formatDayMonth } from '../../domain/time.ts'
 import { alreadyReplacedToast } from '../../domain/final-version-replacement.ts'
 import { type JobHealth, jobHealth } from '../../domain/job-run.ts'
 import { REPLY_CHECK_JOB } from '../../domain/reply-check.ts'
@@ -229,6 +228,7 @@ function answerInput(
     messageId: card.messageId,
     openHref: reviewHref(options.kind, { anchor, reply: anchor }),
     signatureName: options.answer.signatureName,
+    today: options.today,
   }
 }
 
@@ -431,8 +431,8 @@ function clauseCardOf(clause: QueuedClause, options: CardOptions): QueueCardView
       ),
       quote: { isClamped: false, moreHref: null, text: clause.replyText ?? '' },
       tag: {
-        detail: `odpověď odeslána ${formatDayMonth(clause.answeredAt)}`,
-        label: 'Čeká na odpověď',
+        detail: answeredLine(clause.answeredAt),
+        label: WAITING_CLAUSE_LABEL,
         tone: 'running',
       },
       titleHref: null,
@@ -587,10 +587,21 @@ export default function createReviewController(
         session?.flash(SETTLED_SESSION_KEY, anchor)
         compose({ refusal: 'taken', text: typed })
         return redirect(back, 303)
-      /* The answer on record holds the text and says what came of it. */
+      /* The answer on record holds the text and says what came of it. An answer on record that
+         is not this editor's, another's attempt or one still on its way, would hide what this
+         one typed, so that text comes back above the queue to be copied. */
       case 'locked':
       case 'refused':
       case 'unconfirmed':
+        if (typed.trim() !== '' && typed.trim() !== outcome.answer.text) {
+          session?.flash(UNSENT_SESSION_KEY, {
+            line: unsentAnswerLine(outcome.recipient.name, outcome.recipient.email),
+            note: UNSENT_ANSWER_NOTE,
+            text: typed,
+            title: UNSENT_ANSWER_TITLE,
+            tone: 'info',
+          } satisfies UnsentAnswer)
+        }
         compose({})
         return redirect(reopen, 303)
       case 'approved':

@@ -9,6 +9,7 @@ import {
   type AnswerRefusal,
   answersTitle,
   CANCEL_ANSWER_LABEL,
+  isInFlight,
   CLOSE_ANSWER_LABEL,
   LOCKED_ANSWER_HINT,
   RETRY_ANSWER_LABEL,
@@ -63,6 +64,7 @@ export type AnswerViewInput = {
   messageId: string
   openHref: string | null
   signatureName: string | null
+  today: Temporal.Instant
 }
 
 /**
@@ -105,15 +107,23 @@ export function answerFormOf(input: AnswerViewInput): QueueCardAnswer {
     }
   }
   if (current !== undefined) {
+    /* A retry the daily cap stopped says so; one the Mailer never confirmed says that. While the
+       Mailer may still be sending, the text is shown and nothing can be sent again. */
+    let refusal: 'daily-cap' | 'unconfirmed' | null =
+      flash?.refusal === 'daily-cap'
+        ? 'daily-cap'
+        : current.failedAt === null
+          ? null
+          : 'unconfirmed'
     return {
       ...base,
       action: input.actions.retry,
       answerId: current.id,
-      callout: current.failedAt === null ? null : answerCallout('unconfirmed', context),
+      callout: refusal === null ? null : answerCallout(refusal, context),
       closeLabel: CLOSE_ANSWER_LABEL,
       hint: LOCKED_ANSWER_HINT,
       isOpen,
-      mode: 'unconfirmed',
+      mode: isInFlight(current, input.today) ? 'closed' : 'unconfirmed',
       submitLabel: RETRY_ANSWER_LABEL,
       text: current.text,
     }

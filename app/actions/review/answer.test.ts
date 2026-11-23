@@ -2,6 +2,7 @@ import * as assert from 'remix/assert'
 import { sql } from 'remix/data-table'
 import { describe, it } from 'remix/test'
 
+import { createAnswerStore } from '../../data/answers.server.ts'
 import { createArticleStore } from '../../data/articles.server.ts'
 import { createArtworkStore } from '../../data/artworks.server.ts'
 import type { BatchRow } from '../../data/artworks.server.ts'
@@ -365,6 +366,45 @@ describe('answering a reply from Ke kontrole', () => {
       assert.match(html, /Po dalším načtení stránky už tu text nebude\./)
       assert.equal(answersMailed(app).length, 0)
       assert.doesNotMatch(await (await browser.get('/review')).text(), /Odpověď neodešla/)
+    } finally {
+      await app.close()
+    }
+  })
+})
+
+describe('an answer still on its way', () => {
+  it('cannot be sent again from another tab, and the other editor keeps the text', async () => {
+    let { app, batch, browser } = await setup()
+    try {
+      await replyTo(app, batch, 'Můžu se zeptat?')
+      let replyId = (await createArtworkStore(app.database).findBatch(batch.id))?.replyMessageId
+      /* A send that went to the Mailer a moment ago and has no answer from it yet. */
+      let started = await createAnswerStore(app.database).start(
+        { id: batch.id, kind: 'artworks' },
+        {
+          editor: { displayName: 'Jana Malá', email: 'jana@vednemesicnik.test' },
+          messageId: replyId ?? '',
+          signatureName: 'Jana Malá',
+          text: 'Odpověď kolegyně.',
+        },
+        Temporal.Now.instant(),
+      )
+      assert.equal(started.kind, 'started')
+
+      let response = await answerBatch(app, browser, batch, ANSWER)
+      let html = plain(await landing(browser, response))
+      assert.match(html, /Odpověď kolegyně\./)
+      assert.doesNotMatch(html, />Odeslat znovu</)
+      assert.match(html, /Odpověď neodešla/)
+      assert.match(html, /fotka vyjde uvnitř čísla na straně 12\./)
+
+      let answerId = started.kind === 'started' ? String(started.answer.id) : ''
+      await browser.post(
+        `/review/batches/${batch.id}/reply/retry`,
+        { answer: answerId, reply: '', text: '' },
+        '/review',
+      )
+      assert.equal(answersMailed(app).length, 0)
     } finally {
       await app.close()
     }

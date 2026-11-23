@@ -166,7 +166,9 @@ export function ReviewPage(handle: Handle<ReviewPageProps>) {
             <div mix={queueStyle}>
               <ol class="vdm-queue">
                 {cards.map((card) => (
-                  <QueueCard card={card} />
+                  /* Keyed, so a card that leaves the list does not hand its open form and its
+                     typed text to the card after it. */
+                  <QueueCard card={card} key={card.id} />
                 ))}
               </ol>
             </div>

@@ -1,7 +1,7 @@
 import type { Database } from 'remix/data-table'
 import { sql } from 'remix/data-table'
 
-import { answerIdempotencyKey, type AnswerKind } from '../domain/answer.ts'
+import { answerIdempotencyKey, type AnswerKind, isInFlight } from '../domain/answer.ts'
 import { APPROVAL_SUBJECT_PREFIX, clauseState, type ClauseStatus } from '../domain/approvals.ts'
 import { batchState, consentSubject } from '../domain/artwork.ts'
 import { parseStamp, stamp } from '../domain/time.ts'
@@ -80,7 +80,7 @@ export type AnswerStore = {
    * The answer to send again after the Mailer did not confirm it: `started` with the stored
    * answer while the card still waits on that same message, else why not.
    */
-  resume(target: AnswerTarget, answerId: number): Promise<StartAnswerOutcome>
+  resume(target: AnswerTarget, answerId: number, at: Temporal.Instant): Promise<StartAnswerOutcome>
   /**
    * Puts an answer on record before the Mailer is asked, in one transaction with every check, so
    * two editors or two tabs answering the same message cannot both pass (the unique index).
@@ -284,6 +284,9 @@ export function createAnswerStore(database: Database): AnswerStore {
         let row = result.rows?.[0]
         if (row === undefined) return
         let answer = toAnswer(row)
+        /* An outcome already final stays: a send that went is not undone by an attempt that
+           overlapped it and failed, nor a refusal by one that went. */
+        if (answer.sentAt !== null || answer.refusedAt !== null) return
         if (outcome === 'sent') {
           await db.exec(
             sql`UPDATE consent_answers SET sent_at = ${stamp(at)}, failed_at = NULL
@@ -305,7 +308,7 @@ export function createAnswerStore(database: Database): AnswerStore {
       })
     },
 
-    resume(target, answerId) {
+    resume(target, answerId, at) {
       return database.transaction(async (db) => {
         let result = await db.exec(sql`SELECT * FROM consent_answers WHERE id = ${answerId}`)
         let row = result.rows?.[0]
@@ -318,7 +321,9 @@ export function createAnswerStore(database: Database): AnswerStore {
         let refusal = refusalOf(card, answer.inReplyToMessageId)
         if (refusal !== null || card === null) return refusal ?? { kind: 'gone', recipient: null }
         if (answer.sentAt !== null) return { answer, kind: 'taken', recipient: card.recipient }
-        if (answer.refusedAt !== null) return { answer, kind: 'locked', recipient: card.recipient }
+        if (answer.refusedAt !== null || isInFlight(answer, at)) {
+          return { answer, kind: 'locked', recipient: card.recipient }
+        }
         return { answer, kind: 'started', recipient: card.recipient }
       })
     },

@@ -7,6 +7,7 @@ import {
   answerIdempotencyKey,
   answersTitle,
   checkAnswer,
+  isInFlight,
   quoteIntro,
   signatureOf,
 } from './answer.ts'
@@ -63,6 +64,14 @@ describe('an answer from Ke kontrole', () => {
       plain(answerCallout('closed', { ...context, kind: 'artworks' }).title),
       'Vydání VDM_2026_5 je mezitím uzavřené.',
     )
+  })
+
+  it('counts an answer with no outcome as on its way for a minute, then as retryable', () => {
+    let startedAt = Temporal.Instant.from('2026-11-23T10:00:00Z')
+    let open = { failedAt: null, refusedAt: null, sentAt: null, startedAt }
+    assert.equal(isInFlight(open, startedAt.add({ seconds: 30 })), true)
+    assert.equal(isInFlight(open, startedAt.add({ seconds: 61 })), false)
+    assert.equal(isInFlight({ ...open, failedAt: startedAt }, startedAt), false)
   })
 
   it('names the earlier answers apart from the ones just sent', () => {

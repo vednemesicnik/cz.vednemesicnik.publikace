@@ -54,6 +54,27 @@ export function answerIdempotencyKey(kind: AnswerKind, id: number, messageId: st
   return `consent-answer:${kind === 'articles' ? 'clause' : 'batch'}:${id}:${messageId}`
 }
 
+/*
+ * How long an answer with no outcome yet counts as still on its way: past the app's 15 s wait
+ * for the Mailer and the Mailer's own time to send. Within it nobody may send it again, so two
+ * tabs cannot ask the Mailer at once; after it, an attempt a dead process left is retried.
+ */
+const IN_FLIGHT_SECONDS = 60
+
+/** An answer the Mailer is still being asked about, which must not be sent again yet. */
+export function isInFlight(
+  answer: {
+    failedAt: Temporal.Instant | null
+    refusedAt: Temporal.Instant | null
+    sentAt: Temporal.Instant | null
+    startedAt: Temporal.Instant
+  },
+  at: Temporal.Instant,
+): boolean {
+  if (answer.sentAt !== null || answer.failedAt !== null || answer.refusedAt !== null) return false
+  return Temporal.Instant.compare(answer.startedAt.add({ seconds: IN_FLIGHT_SECONDS }), at) > 0
+}
+
 /* ─── The form on the card (`13d`) ──────────────────────────────────────────────────────── */
 
 export const ANSWER_LABEL = 'Odpovědět'

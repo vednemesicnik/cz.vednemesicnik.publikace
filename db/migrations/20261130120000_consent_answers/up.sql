@@ -30,7 +30,7 @@ CREATE TABLE consent_answers (
   failed_at TEXT,
   refused_at TEXT,
   CHECK ((batch_id IS NULL) <> (clause_id IS NULL)),
-  CHECK ((sent_at IS NOT NULL) + (refused_at IS NOT NULL) <= 1)
+  CHECK ((sent_at IS NOT NULL) + (failed_at IS NOT NULL) + (refused_at IS NOT NULL) <= 1)
 ) STRICT;
 
 -- One answer per message of the provider: a second editor or tab answering the same reply finds
@@ -43,11 +43,13 @@ CREATE UNIQUE INDEX consent_answers_one_per_clause_reply
 -- The provider's message the last confirmed answer went to, and when. The latest reply counts as
 -- answered while `answered_message_id` is the batch's `reply_message_id`; a newer reply leaves
 -- them apart, and the batch is back in Ke kontrole without anything being reset.
-ALTER TABLE artwork_batches ADD COLUMN answered_message_id TEXT;
+ALTER TABLE artwork_batches ADD COLUMN answered_message_id TEXT
+  CHECK (answered_message_id <> '');
 ALTER TABLE artwork_batches ADD COLUMN answered_at TEXT
   CHECK ((answered_message_id IS NULL) = (answered_at IS NULL));
 
 -- The same for an author's clause.
-ALTER TABLE article_clauses ADD COLUMN answered_message_id TEXT;
+ALTER TABLE article_clauses ADD COLUMN answered_message_id TEXT
+  CHECK (answered_message_id <> '');
 ALTER TABLE article_clauses ADD COLUMN answered_at TEXT
   CHECK ((answered_message_id IS NULL) = (answered_at IS NULL));

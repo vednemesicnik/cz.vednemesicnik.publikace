@@ -153,6 +153,14 @@ export type ClauseDetail = {
   state: ClauseState
 }
 
+/** _Čeká na odpověď_: the author is on the move, in the row and on the card just answered. */
+export const WAITING_CLAUSE_LABEL = 'Čeká na odpověď'
+
+/** `odpověď odeslána 19. 11.`, under the tag once an answer from _Ke kontrole_ went (`0kwr8vpl`). */
+export function answeredLine(at: Temporal.Instant): string {
+  return `odpověď odeslána ${formatDayMonth(at)}`
+}
+
 /**
  * An author's tag in the open row and the line beside it, as the table under `12b` gives them.
  * `quote` is the reply under _Ke kontrole_, which is decided only in the queue (`13a`), so the row
@@ -192,11 +200,11 @@ export function clauseRowTag(
         /* The date of the last e-mail that went to the author (`0kwr8vpl`). */
         detail:
           clause.answeredAt !== null
-            ? `odpověď odeslána ${formatDayMonth(clause.answeredAt)}`
+            ? answeredLine(clause.answeredAt)
             : clause.sentAt === null
               ? null
               : `od ${formatDayMonth(clause.sentAt)}`,
-        label: 'Čeká na odpověď',
+        label: WAITING_CLAUSE_LABEL,
         tone: 'running',
       }
     case 'review':
