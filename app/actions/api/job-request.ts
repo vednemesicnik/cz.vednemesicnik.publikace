@@ -13,7 +13,7 @@ export type JobCaller = {
 }
 
 /* A trigger fires at most once a minute and at least once a day. */
-export const MAX_INTERVAL_MINUTES = 24 * 60
+const MAX_INTERVAL_MINUTES = 24 * 60
 
 const NO_STORE = { 'Cache-Control': 'no-store' }
 

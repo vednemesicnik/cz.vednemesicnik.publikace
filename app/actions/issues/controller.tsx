@@ -59,7 +59,6 @@ import {
   resentClausesToast,
 } from '../../domain/approvals.ts'
 import { type JobHealth, jobHealth, jobState } from '../../domain/job-run.ts'
-import { jobByKey } from '../../domain/jobs.ts'
 import { PRINT_HANDOFF_JOB, printLine } from '../../domain/print-handoff.ts'
 import { tied } from '../../domain/public/typography.ts'
 import { UNDO_LABEL } from '../../domain/review.ts'
@@ -684,8 +683,7 @@ async function printOf(context: PageContext, issue: Issue): Promise<PrintSection
   if (issueState(issue) !== 'active' || folderId === null) return undefined
   let { printHandoffs, runs } = articlesOf(context)
   let today = now()
-  let job = jobByKey(PRINT_HANDOFF_JOB)
-  let state = jobState(await runs.latest(PRINT_HANDOFF_JOB), today, job?.window)
+  let state = jobState(await runs.latest(PRINT_HANDOFF_JOB), today)
   return {
     folderHref: folderUrl(folderId),
     jobHref: routes.settings.jobs.show.href({ job: PRINT_HANDOFF_JOB }),
