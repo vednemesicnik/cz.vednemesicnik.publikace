@@ -179,10 +179,10 @@ import {
   DetailPage,
   type DiscardView,
   type GroupsView,
+  type IssueMissingView,
   type LinkBlockView,
   type MissingAddressView,
   type NewGroupDialogView,
-  type IssueMissingView,
   type MissingFoldersView,
   type PrintSectionView,
   type ReplacedVersionView,
@@ -1095,7 +1095,9 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
           else flashToast(context, CHECK_UNAVAILABLE_TOAST, 'error')
           return back()
         }
-        let checked = recordedIssueMissing(issue)
+        /* The toast speaks of the folder the Callout named, never of one it kept quiet about. */
+        let shown = shownIssueMark(issue)
+        let checked = shown === null ? [] : [shown.kind]
         let check = await checkIssueFolders(
           { folders: articlesOf(context).artworks.folders(token.accessToken), issues: store, now },
           issue,
