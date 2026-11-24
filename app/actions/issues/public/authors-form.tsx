@@ -44,17 +44,12 @@ const formStyle = css({ display: 'contents' })
 
 const defaultSubmitStyle = css({ display: 'none' })
 
-const bodyStyle = css({ display: 'flex', flexDirection: 'column', gap: '16px' })
-
 const noteStyle = css({
   color: 'var(--text-secondary)',
   fontSize: '13px',
   lineHeight: 1.5,
   margin: 0,
 })
-
-/* A name of up to 200 characters breaks anywhere rather than running out of the dialog. */
-const leadStyle = css({ margin: 0, overflowWrap: 'anywhere' })
 
 function ErrorIcon() {
   return () => (
@@ -214,8 +209,10 @@ export const AuthorsForm = clientEntry(
           {props.hidden.map((field) => (
             <input name={field.name} type="hidden" value={field.value} />
           ))}
-          <div class="vdm-dialog__body" mix={bodyStyle}>
-            <p class="vdm-dialog__text" mix={leadStyle}>
+          <div class="vdm-dialog__body">
+            {/* Inline, because a `css()` mix loses to the `vdm-*` class on the same element. A name
+                of up to 200 characters breaks anywhere rather than running out of the dialog. */}
+            <p class="vdm-dialog__text" style={{ overflowWrap: 'anywhere' }}>
               {props.lead}
             </p>
             {props.callout === null ? null : (
