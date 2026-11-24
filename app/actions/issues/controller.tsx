@@ -286,7 +286,8 @@ function missingView(
     .reduce((first, at) => (Temporal.Instant.compare(at, first) < 0 ? at : first))
   let ofArticle = batches.filter((batch) => batch.articleId === article.id)
   let hasBatchToResend = ofArticle.some(isResendable)
-  let hasBatchAwaitingConsent = ofArticle.some(isAwaitingConsent)
+  /* A closed issue's replies are read by nobody (`12h`), so nothing records its consents. */
+  let hasBatchAwaitingConsent = issue.closedAt === null && ofArticle.some(isAwaitingConsent)
   return {
     /* A closed issue's detail is for reading (`12h`); its records stand as they are. */
     checkAction:

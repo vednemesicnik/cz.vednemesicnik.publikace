@@ -371,6 +371,16 @@ describe('a missing folder of the article (12j, 21a, 12o)', () => {
           'Konverzace se do složky Licence uloží při první kontrole odpovědí po jejím návratu.',
         ),
       )
+
+      /* Closed, nothing reads the replies, so the step promises nothing about them. */
+      await context.editor.post(
+        '/issues/VDM_2026_5/close',
+        { returnTo: 'detail' },
+        '/issues/VDM_2026_5/close',
+      )
+      let closed = textOf(await (await context.editor.get('/issues/VDM_2026_5')).text())
+      assert.ok(closed.includes('Obnovte složky'))
+      assert.ok(!closed.includes('Souhlasy se dál zaznamenávají.'))
     }))
 
   it('says what Zkontrolovat znovu found, and the step goes once the folder is back', () =>
