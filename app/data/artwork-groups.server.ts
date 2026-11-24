@@ -66,7 +66,11 @@ export type GroupStore = {
   listByIssue(issueId: number): Promise<ListedGroup[]>
   markForCleanup(id: number, at: Temporal.Instant): Promise<void>
   markMissing(id: number, kinds: readonly ArticleFolderKind[], at: Temporal.Instant): Promise<void>
-  /** Every name in the issue by its key, attempts included, as the dialog checks it. */
+  /**
+   * Every name in the issue by its key, as the dialog checks it: the groups and the attempts under
+   * way. A failed attempt waiting for its cleanup is no group and does not count, though it holds
+   * its name until its files reach the bin.
+   */
   namesOf(issueId: number): Promise<Map<string, string>>
   /** Attempts whose cleanup failed before, safe to take while other requests run. */
   pendingCleanups(): Promise<GroupRow[]>
@@ -244,7 +248,8 @@ export function createGroupStore(database: Database): GroupStore {
 
     async namesOf(issueId) {
       let result = await database.exec(
-        sql`SELECT name, name_key FROM artwork_groups WHERE issue_id = ${issueId}`,
+        sql`SELECT name, name_key FROM artwork_groups
+            WHERE issue_id = ${issueId} AND cleanup_at IS NULL`,
       )
       let names = new Map<string, string>()
       for (let row of result.rows ?? []) names.set(String(row['name_key']), String(row['name']))

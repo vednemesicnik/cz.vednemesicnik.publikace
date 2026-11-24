@@ -161,6 +161,8 @@ import {
 } from '../../domain/proofreading-queue.ts'
 import type { FinalVersionDialogProps } from '../../ui/final-version-dialog/component.tsx'
 import { createIssue, finishIssue } from '../../drive/issue-setup.server.ts'
+import { createGroup, groupSetupOf } from '../../drive/group-setup.server.ts'
+import { GROUP_CREATED_TOAST, groupCountText, groupNoteLine } from '../../domain/artwork-group.ts'
 import { Articles, type ArticlesContext } from '../../middleware/articles.server.ts'
 import { type Person, requireEditor } from '../../middleware/auth.server.ts'
 import { DriveAccount } from '../../middleware/drive-account.server.ts'
@@ -174,8 +176,10 @@ import {
   type ClausesView,
   DetailPage,
   type DiscardView,
+  type GroupsView,
   type LinkBlockView,
   type MissingAddressView,
+  type NewGroupDialogView,
   type MissingFoldersView,
   type PrintSectionView,
   type ReplacedVersionView,
@@ -218,6 +222,24 @@ function takeFolderGone(session: Session | undefined, name: string): boolean {
  * focuses _Kopírovat_ until the next load (`12c`, `02d`). By name, and taken once.
  */
 const LINK_CHANGED_SESSION_KEY = 'issueLinkChanged'
+
+/*
+ * The artwork group just created, so the detail it redirects to puts it first, highlighted, with
+ * focus on its _Kopírovat_ until the next load (`12e`). By its ID, and taken once.
+ */
+const GROUP_CHANGED_SESSION_KEY = 'artworkGroupChanged'
+
+function flashGroupChanged(session: Session | undefined, groupId: number): void {
+  session?.flash(GROUP_CHANGED_SESSION_KEY, String(groupId))
+}
+
+function takeGroupChanged(session: Session | undefined): number | null {
+  let value = session?.get(GROUP_CHANGED_SESSION_KEY)
+  if (value === undefined) return null
+  session?.unset(GROUP_CHANGED_SESSION_KEY)
+  let id = Number(value)
+  return Number.isSafeInteger(id) ? id : null
+}
 
 function flashLinkChanged(session: Session | undefined, name: string): void {
   session?.flash(LINK_CHANGED_SESSION_KEY, name)
@@ -647,6 +669,38 @@ function overviewFilterOf(context: PageContext): IssueFilter {
   return parseIssueFilter(context.url.searchParams.get('state'))
 }
 
+/**
+ * _Skupiny obrazových děl_ (`12a`, `12c`, `12h`): every group of a complete issue, the newest
+ * first, with _Nová skupina_ while the issue is active. An unfinished issue has none (`01a`).
+ */
+async function groupsOf(
+  context: PageContext,
+  issue: Issue,
+  changedId: number | null,
+): Promise<GroupsView | undefined> {
+  let state = issueState(issue)
+  if (state === 'unfinished') return undefined
+  let { artworks, origin } = articlesOf(context)
+  let groups = await artworks.groups.listByIssue(issue.id)
+  return {
+    newHref: state === 'active' ? routes.issues.newGroup.href({ name: issue.name }) : null,
+    rows: groups.map((group) => {
+      let url = group.link === null ? null : absoluteUrl(origin, artworksLinkPath(group.link.key))
+      return {
+        count: groupCountText(group.artworks),
+        folderHref: group.folderId === null ? null : folderUrl(group.folderId),
+        id: group.id,
+        isChanged: group.id === changedId,
+        isClosed: state === 'closed',
+        name: group.name,
+        noteLine: group.note === '' ? null : groupNoteLine(group.note),
+        shown: url === null ? null : shownUrl(url),
+        url,
+      }
+    }),
+  }
+}
+
 async function renderDetail(
   context: PageContext & { auth: { identity: Person } },
   issue: Issue,
@@ -654,6 +708,7 @@ async function renderDetail(
     discarding?: DiscardView
     isFolderGone?: boolean
     isRenewing?: boolean
+    newGroup?: NewGroupDialogView
     replacing?: FinalVersionDialogProps
     status?: number
     step?: IssueStepDialogView
@@ -673,10 +728,12 @@ async function renderDetail(
       artworks={await artworksOf(context, issue, filterOf(context))}
       discarding={options.discarding}
       driveAccount={await driveView(context)}
+      groups={await groupsOf(context, issue, takeGroupChanged(session))}
       isFolderGone={options.isFolderGone}
       isRenewing={options.isRenewing}
       issue={issue}
       link={link}
+      newGroup={options.newGroup}
       person={context.auth.identity}
       print={await printOf(context, issue)}
       replacing={options.replacing}
@@ -867,6 +924,18 @@ function renderStep(
     : renderDetail(context, step.issue, { step })
 }
 
+/** The dialog _Nová skupina obrazových děl_ over the detail, with what it was sent (`12e`). */
+function newGroupDialog(
+  issue: Issue,
+  state: Omit<NewGroupDialogView, 'action' | 'cancelHref'>,
+): NewGroupDialogView {
+  return {
+    ...state,
+    action: routes.issues.createGroup.href({ name: issue.name }),
+    cancelHref: routes.issues.show.href({ name: issue.name }),
+  }
+}
+
 function notFound(): Response {
   return new Response('Not Found', { status: 404 })
 }
@@ -1031,6 +1100,59 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
         let from = answeredFrom(context)
         if (await store.reopen(issue.id)) flashToast(context, reopenedToast(issue.name))
         return redirect(stepBackHref(issue, from.returnTo, from.filter), 303)
+      },
+
+      async newGroup(context) {
+        let issue = await issuesOf(context).store.findByName(context.params.name)
+        if (issue === null || issueState(issue) !== 'active') return notFound()
+        return renderDetail(context, issue, {
+          newGroup: newGroupDialog(issue, {
+            errors: { name: null, note: null },
+            formKey: crypto.randomUUID(),
+            refusal: null,
+            values: { name: '', note: '' },
+          }),
+        })
+      },
+
+      async createGroup(context) {
+        let issue = await issuesOf(context).store.findByName(context.params.name)
+        if (issue === null || issueState(issue) !== 'active') return notFound()
+        let editor = context.auth.identity
+        let values = { name: formText(context, 'name'), note: formText(context, 'note') }
+        let typedKey = formText(context, 'formKey')
+        let formKey = /^[0-9a-f-]{36}$/.test(typedKey) ? typedKey : crypto.randomUUID()
+        let again = (
+          errors: NewGroupDialogView['errors'],
+          refusal: NewGroupDialogView['refusal'],
+          status: number,
+        ) =>
+          renderDetail(context, issue, {
+            newGroup: newGroupDialog(issue, { errors, formKey, refusal, values }),
+            status,
+          })
+
+        let { artworks, setup } = articlesOf(context)
+        let outcome = await createGroup(groupSetupOf(setup, artworks), {
+          ...values,
+          formKey,
+          issueId: issue.id,
+          startedBy: { email: editor.email, name: editor.displayName },
+        })
+        switch (outcome.kind) {
+          case 'created':
+            flashToast(context, GROUP_CREATED_TOAST)
+            flashGroupChanged(context.get(Session), outcome.group.id)
+            return redirect(routes.issues.show.href({ name: issue.name }), 303)
+          case 'invalid':
+            return again(outcome.errors, null, REFUSED)
+          case 'not-active':
+            return notFound()
+          case 'unavailable':
+          case 'disconnected':
+          case 'not-connected':
+            return again({ name: null, note: null }, outcome.kind, IN_THE_WAY)
+        }
       },
 
       async askRenewLink(context) {
