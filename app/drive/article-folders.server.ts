@@ -21,11 +21,14 @@ export type ArticleFoldersDeps = {
   now(): Temporal.Instant
 }
 
-/** An article's folders, or a group's when `kind` says so. */
+/**
+ * An article's folders or a group's. `kind` is never left to a default: an article and a group
+ * can share an ID, and a mark recorded on the wrong one would go unseen.
+ */
 export type ArticleFolderIds = Pick<
   ArticleRow,
   'artworksFolderId' | 'folderId' | 'id' | 'licencesFolderId'
-> & { kind?: HolderKind }
+> & { kind: HolderKind }
 
 export type FolderCheck = { missing: ArticleFolderKind[] } | 'unavailable'
 

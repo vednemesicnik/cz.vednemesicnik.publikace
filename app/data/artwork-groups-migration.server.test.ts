@@ -118,12 +118,42 @@ describe('the artwork groups migration', () => {
     }
   })
 
-  it('rolls back to the tables before groups, keeping the article rows', async () => {
+  it('rolls back to the tables before groups, dropping the groups’ rows and keeping the articles’', async () => {
     let { db, migrations, opened } = await seededBeforeGroups()
     try {
       await db.migrate(migrations)
+      /* A group with everything that hangs on it, which the rollback takes away first. */
+      await db.exec(sql`INSERT INTO artwork_groups (id, issue_id, form_key, name, name_key,
+          started_at, started_by_email, started_by_name, folder_id, artworks_folder_id,
+          licences_folder_id, meta_file_id, created_at)
+        VALUES (1, 1, 'form-group', 'Obálka', 'obálka', ${AT}, 'marie@vednemesicnik.test',
+          'Marie Horáková', 'folder-g', 'folder-g-artworks', 'folder-g-licences', 'meta-g', ${AT})`)
+      await db.exec(sql`INSERT INTO links (id, key, kind, issue_id, group_id, created_at)
+        VALUES (3, 'p3Vd8nL1sQ6e', 'artworks', 1, 1, ${AT})`)
+      await db.exec(sql`INSERT INTO artwork_batches (id, issue_id, group_id, link_id, form_key,
+          provider_name, provider_email, tag, started_at, created_at)
+        VALUES (2, 1, 1, 3, 'form-group-batch', 'Klára Šimková', 'klara.simkova@external.test',
+          '20261120T110000', ${AT}, ${AT})`)
+      await db.exec(sql`INSERT INTO artworks (id, link_id, group_id, form_key, upload_key,
+          drive_file_id, original_name, stored_name, mime_type, size, is_readable, uploaded_at,
+          batch_id, position)
+        VALUES (2, 3, 1, 'form-group-page', 'upload-2', 'file-2', 'obalka.jpg', 'def.jpg',
+          'image/jpeg', 1000, 1, ${AT}, 2, 1)`)
+      await db.exec(sql`INSERT INTO consent_answers (batch_id, in_reply_to_message_id,
+          reply_received_at, reply_text, text, editor_email, editor_name, idempotency_key,
+          started_at)
+        VALUES (2, 'message-2', ${AT}, 'ok', 'Děkujeme.', 'marie@vednemesicnik.test',
+          'Marie Horáková', 'answer-2', ${AT})`)
+      await db.exec(sql`INSERT INTO print_groups (group_id, issue_id, folder_id)
+        VALUES (1, 1, 'folder-print-g')`)
+      await db.exec(sql`INSERT INTO print_group_artworks (artwork_id, group_id, copy_file_id, name)
+        VALUES (2, 1, 'copy-2', 'obr-01.jpg')`)
+
       await db.migrate(migrations, { direction: 'down', step: 1 })
 
+      assert.equal(await count(db, 'links'), 2)
+      assert.equal(await count(db, 'artwork_batches'), 1)
+      assert.equal(await count(db, 'consent_answers'), 1)
       assert.equal(await count(db, 'artworks'), 1)
       assert.equal(await count(db, 'print_artworks'), 1)
       let broken = await db.exec(sql`PRAGMA foreign_key_check`)

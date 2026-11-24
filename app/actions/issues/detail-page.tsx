@@ -1299,7 +1299,8 @@ function GroupRow(handle: Handle<{ group: GroupRowView }>) {
               <CopyButton isFocused={group.isChanged} shown={group.shown} value={group.url} />
             )}
           </div>
-          {group.isClosed || items.length === 0 ? null : (
+          {/* Opening the folder writes nothing, so it stays on a closed issue too (`12h`). */}
+          {items.length === 0 ? null : (
             <ActionMenu items={items} label={groupMenuLabel(group.name)} />
           )}
         </div>
@@ -1405,7 +1406,7 @@ function NewGroupDialog(
                 aria-describedby={nameError}
                 aria-invalid={nameError === undefined ? undefined : 'true'}
                 autocomplete="off"
-                autofocus
+                autofocus={errors.name !== null || errors.note === null}
                 class={
                   nameError === undefined
                     ? 'vdm-field__input'
@@ -1431,6 +1432,7 @@ function NewGroupDialog(
               <textarea
                 aria-describedby={noteMessage}
                 aria-invalid={errors.note === null ? undefined : 'true'}
+                autofocus={errors.name === null && errors.note !== null ? true : undefined}
                 class={
                   errors.note === null
                     ? 'vdm-field__input vdm-field__textarea'

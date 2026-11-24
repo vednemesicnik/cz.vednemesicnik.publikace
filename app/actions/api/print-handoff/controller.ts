@@ -43,10 +43,13 @@ import { bodyOf, intervalOf, isText, json, refusal } from '../job-request.ts'
  *    `folderTag`, and its artworks as `obr-NN`, as an article's do; an empty group gets none.
  * 2. `report` with the run's key gives, per issue it worked on, the sheet, whether it got through
  *    the whole issue (`isComplete`), and per article it reached the copy now in the folder, or
- *    `null` once the folder is gone; per group the same in `groups`, which a job written before
- *    groups leaves out. An article or a group left out stays as it was. It closes the run.
+ *    `null` once the folder is gone; per group the same in `groups`. A report without `groups`
+ *    leaves every group as it was, and its `isComplete` then speaks for the articles alone: the
+ *    job is written against this version (#119), so none that predates groups is deployed. An
+ *    article or a group left out stays as it was. It closes the run.
  *    Besides the limits on one issue and one article, the report as a whole holds at most
- *    `MAX_REPORT_ARTICLES` articles and `MAX_REPORT_ARTWORKS` artworks, or nothing is recorded.
+ *    `MAX_REPORT_ARTICLES` articles and groups together and `MAX_REPORT_ARTWORKS` artworks, or
+ *    nothing is recorded.
  *
  * Every file the job makes carries its tag in `appProperties` under `publikaceHandoff`:
  * `folderTag` on an article's folder, `copyTag` on a text or an artwork. Before it creates one, the

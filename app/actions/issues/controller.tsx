@@ -341,7 +341,7 @@ async function recheckMissing(context: PageContext, issue: Issue): Promise<void>
   let token = await artworks.token()
   if (!token.ok) return
   let deps = { articles, folders: artworks.folders(token.accessToken), now }
-  for (let article of marked) await checkArticleFolders(deps, article)
+  for (let article of marked) await checkArticleFolders(deps, { ...article, kind: 'article' })
 }
 
 /**
@@ -1037,7 +1037,7 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
         let checked = recordedMissing(article)
         let check = await checkArticleFolders(
           { articles, folders: artworks.folders(token.accessToken), now },
-          article,
+          { ...article, kind: 'article' },
         )
         if (check === 'unavailable') {
           flashToast(context, CHECK_UNAVAILABLE_TOAST, 'error')

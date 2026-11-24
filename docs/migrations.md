@@ -87,3 +87,8 @@ rebuilds `links`, `artwork_batches` and `artworks` this way and is the example t
 - **A test migrates a seeded database through it**: the rows the old tables held, then
   `PRAGMA foreign_key_check` empty, `integrity_check` `ok`, and the triggers still firing.
   `app/data/artwork-groups-migration.server.test.ts` does it, and rolls back with `down.sql`.
+- **Out of the runner's transaction, the journal is written after the script's own `COMMIT`.**
+  A process killed between the two leaves the schema changed and the migration unrecorded, and
+  the next start fails on the first statement that cannot run twice. `pnpm db:status` then shows
+  it `pending` while the tables say otherwise: insert its journal row by hand, with the checksum
+  `remix db` reports, rather than editing the migration.

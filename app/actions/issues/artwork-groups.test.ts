@@ -146,10 +146,16 @@ describe('a new artwork group (12e)', () => {
       assert.ok(emptyHtml.includes('Proč nechodíme volit'))
 
       let long = await createGroup(context, { name: 'x'.repeat(201) })
-      assert.ok(textOf(await long.text()).includes('Zkraťte název na nejvýš 200 znaků.'))
+      assert.equal(long.status, 400)
+      let longHtml = await long.text()
+      assert.ok(textOf(longHtml).includes('Zkraťte název na nejvýš 200 znaků.'))
+      assert.ok(longHtml.includes(`value="${'x'.repeat(201)}"`))
 
       let longNote = await createGroup(context, { name: 'Obálka', note: 'x'.repeat(501) })
-      assert.ok(textOf(await longNote.text()).includes('Zkraťte poznámku na nejvýš 500 znaků.'))
+      assert.equal(longNote.status, 400)
+      let longNoteHtml = await longNote.text()
+      assert.ok(textOf(longNoteHtml).includes('Zkraťte poznámku na nejvýš 500 znaků.'))
+      assert.ok(longNoteHtml.includes('value="Obálka"'))
 
       assert.equal((await createGroup(context, { name: 'Obálka' })).status, 303)
       let calls = context.app.drive.calls.length
@@ -206,8 +212,13 @@ describe('a new artwork group (12e)', () => {
       assert.ok(textOf(html).includes('Skupina je vytvořená. Odkaz pošlete tomu, kdo díla dodá.'))
       let key = await linkKeyOf(context, 'Ilustrace k tématu Volby')
       assert.ok(html.includes(`/l/${key}/artworks`))
-      /* The new group is highlighted until the next load (`12e`). */
-      assert.match(html, /class="vdm-changed"/)
+      /* The new group is highlighted, with focus on its Kopírovat, until the next load (`12e`). */
+      let groupsHtml =
+        /<section aria-labelledby="groups-title"[^>]*>(.*?)<\/section>/s.exec(html)?.[1] ?? ''
+      let changed =
+        /<div class="vdm-changed">(.*?)<\/div>\s*<\/div>\s*<\/div>/s.exec(groupsHtml)?.[1] ?? ''
+      assert.ok(changed.includes('Ilustrace k tématu Volby'))
+      assert.match(changed, /autofocus/)
       let again = await (await context.editor.get(DETAIL)).text()
       assert.ok(!/<section aria-labelledby="groups-title".*vdm-changed/s.test(again))
     }))
@@ -236,11 +247,42 @@ describe('a new artwork group (12e)', () => {
         [],
       )
 
+      /* The refused dialog sends its own key again, and the same key goes through. */
       context.app.drive.heal()
-      assert.equal((await createGroup(context, { name: 'Obálka' })).status, 303)
+      assert.equal(
+        (await createGroup(context, { formKey: DIALOG_KEY, name: 'Obálka', note: NOTE })).status,
+        303,
+      )
     }))
 
-  it('takes no group in an unfinished issue, and lists a closed issue’s groups without what writes (12h)', () =>
+  it('takes no group in an unfinished issue and draws it no section (01a)', async () => {
+    let app = await createTestApp()
+    try {
+      await seedAdmin(app, MARIE)
+      await connectDriveAccount(app)
+      let editor = app.browser()
+      await editor.signInAs(MARIE, 'Marie Horáková')
+      app.drive.failCreate('Články')
+      await editor.post('/issues/new', { name: ISSUE }, '/issues/new')
+      app.drive.heal()
+      let issue = await createIssueStore(app.database).findByName(ISSUE)
+      assert.equal(issue?.completedAt, null)
+
+      let detail = await (await editor.get(DETAIL)).text()
+      assert.equal(groupsSection(detail), null)
+      assert.equal((await editor.get(NEW)).status, 404)
+      let refused = await editor.post(
+        NEW,
+        { formKey: crypto.randomUUID(), name: 'Obálka', note: '' },
+        DETAIL,
+      )
+      assert.equal(refused.status, 404)
+    } finally {
+      await app.close()
+    }
+  })
+
+  it('lists a closed issue’s groups without what writes, its folder still at hand (12h)', () =>
     withIssue(async (context) => {
       assert.equal((await createGroup(context, { name: 'Obálka' })).status, 303)
       let key = await linkKeyOf(context, 'Obálka')
@@ -255,11 +297,16 @@ describe('a new artwork group (12e)', () => {
       )
       assert.equal(refused.status, 404)
       let html = await (await context.editor.get(DETAIL)).text()
-      let section =
-        /<section aria-labelledby="groups-title"[^>]*>(.*?)<\/section>/s.exec(html)?.[1] ?? ''
+      /* Up to the next section: the menu's own markup may hold a nested one. */
+      let section = html.slice(
+        html.indexOf('aria-labelledby="groups-title"'),
+        html.indexOf('aria-labelledby="artworks-title"'),
+      )
       assert.ok(!section.includes('Nová skupina'))
       assert.match(section, new RegExp(`<del[^>]*>[^<]*/l/${key}/artworks</del>`))
       assert.ok(!section.includes('Kopírovat'))
+      /* The „⋯“ with _Otevřít složku skupiny_ stays; its items are drawn when it opens. */
+      assert.ok(section.includes('aria-label="Další akce skupiny Obálka"'))
       assert.equal((await context.app.browser().get(`/l/${key}/artworks`)).status, 410)
     }))
 })
