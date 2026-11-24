@@ -269,8 +269,8 @@ export function IssueStepDialog(handle: Handle<{ step: IssueStepDialogView }>) {
   }
 }
 
-/* A name of up to 200 characters breaks anywhere rather than running out of the Callout. */
-const calloutLinkStyle = css({ fontWeight: 'inherit', overflowWrap: 'anywhere' })
+/* The link keeps the weight of the line it stands in, the title's included. */
+const calloutLinkStyle = css({ fontWeight: 'inherit' })
 
 function Parts(handle: Handle<{ parts: readonly CalloutPart[] }>) {
   return () => (
