@@ -55,8 +55,7 @@ function checkOnce(href: string, csrfToken: string, reload: () => Promise<unknow
 export const FolderCheck = clientEntry(
   import.meta.url,
   function FolderCheck(handle: Handle<FolderCheckProps>) {
-    /* The server draws the button as it is without the runtime, an ordinary form. */
-    let isChecking = typeof document !== 'undefined'
+    let isChecking = false
     let isSubmitted = false
     let isWaiting = false
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -88,13 +87,19 @@ export const FolderCheck = clientEntry(
       { signal: handle.signal },
     )
 
-    if (isChecking) {
-      wait()
-      let { arrivalCheck, csrfToken } = handle.props
-      checkOnce(arrivalCheck, csrfToken, () => handle.frames.top.reload()).then(() => {
-        if (handle.signal.aborted) return
-        isChecking = false
-        settle()
+    /* The check starts after the first render, which matches the server's ordinary form and so
+       hydrates without a mismatch; without the runtime, that form is all there is. */
+    if (typeof document !== 'undefined') {
+      handle.queueTask(() => {
+        isChecking = true
+        handle.update()
+        wait()
+        let { arrivalCheck, csrfToken } = handle.props
+        checkOnce(arrivalCheck, csrfToken, () => handle.frames.top.reload()).then(() => {
+          if (handle.signal.aborted) return
+          isChecking = false
+          settle()
+        })
       })
     }
 
