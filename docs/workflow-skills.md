@@ -104,8 +104,10 @@ prompt. The question inside `/ship-issue` is the only stop between a green PR an
 the plan of what the app does, what it stores and whom it lets in; the design canvas is the plan
 of how each screen looks and reads. When the two disagree, the question decides which one gives
 way: a question of UX is the canvas's, answered through `/ask-design`, and one of product,
-architecture or security is the documents', decided by the user, because the design answers UX
-only. `docs/review-*.md` is something else: a reading of all of them on one date, whose findings
+architecture or security is the documents', decided by the agent running the skill, because the
+design answers UX only. The agent holds the documents, the code and the evidence, so it states
+those decisions with their reasons rather than asking; you are asked only where the call turns on
+something only you know, and then with its recommendation first. `docs/review-*.md` is something else: a reading of all of them on one date, whose findings
 each carry an ID and a _Resolution_.
 
 The documents change whenever what they say stops being true, and every skill reads them for that:

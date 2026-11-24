@@ -128,8 +128,13 @@ session, so a proposal can open a door without anybody drawing one. `security.md
 
 ### Phase 2 — The verdict
 
-Ask the user with `AskUserQuestion` only if the evidence genuinely leaves the call open.
-Otherwise say which of the four it is, and why, in your own voice:
+**The verdict is yours, and so is every product, architecture and security point under it.**
+You hold the documents, the code and the evidence; the user decides from a recommendation, not
+from an open question, and a choice handed over without one is work handed back. State each
+point as a decision with its reason. Ask with `AskUserQuestion` only when the call turns on
+something only the user knows — what the newsroom actually does, money, a person, a service
+account outside the repository — and even then put your recommendation first, with why. Say
+which of the four it is, and why, in your own voice:
 
 - **Write the issue.** Every question answered with evidence. The answers are not thrown away —
   they become the issue: 1 and 2 the motivation, 4 the mechanism, 6 what each surface gets,
@@ -162,6 +167,6 @@ It does not weigh _how_ to build the thing — that is `/plan-issue`. It does no
 on GitHub either; it produces the argued text and the verdict, and the user opens it. The only
 files it writes are the documents in `docs/`, under _Change the plan_ or a _Drop it_ that settles
 a rule, and it commits none of them. A question of UX the documents leave open goes to
-`/ask-design`; one of product, architecture or security is the user's, asked with
-`AskUserQuestion`, because the design answers UX only. And it
+`/ask-design`; one of product, architecture or security is decided here, because the design
+answers UX only and the user decides from recommendations. And it
 never runs on a bug: something already broken is not a proposal, it is a repair.

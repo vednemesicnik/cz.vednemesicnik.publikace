@@ -120,7 +120,7 @@ a normal result, and the existing issues show what each one produces when it doe
    legend exists in one document and is needed in the other ten"_. Evidence: both sides, each
    cited, and which side is the authority on that question
    ([workflow-skills.md](../../../docs/workflow-skills.md)) — that decides whether the answer
-   comes from `/ask-design` or from the user. A disagreement is worth more than either half
+   comes from `/ask-design` or from `/review-idea`, which decides it. A disagreement is worth more than either half
    alone, because it means somebody has to choose regardless.
 
 A sixth lane exists but is not yours to sweep by hand: **upstream drift**, where a dependency
