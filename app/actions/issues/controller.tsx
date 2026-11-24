@@ -110,8 +110,8 @@ import { formatMoment, now, parseStamp, stamp } from '../../domain/time.ts'
 import type {
   Article,
   ArticleRow,
-  MissingFolders,
   HandoverOutcome,
+  MissingFolders,
   ReplaceFinalOutcome,
 } from '../../data/articles.server.ts'
 import type { BatchRow, ListedBatch } from '../../data/artworks.server.ts'

@@ -81,7 +81,7 @@ export function headingText(parts: readonly HeadingPart[]): string {
  * The sentences under the step: what the article or the group cannot do and when the app found it
  * (`12j`). Only the first names the holder's link; the rest are the same for both.
  * Each sentence stands only where it holds. The request is named only where a batch waits for
- * _Poslat žádost znovu_, which needs the article's folder and `Licence`. The consents are named
+ * _Poslat žádost znovu_, which needs the holder's own folder and `Licence`. The consents are named
  * only where `Licence` is missing and a batch still waits for its consent: the reply check records
  * the consent meanwhile, and archives the conversation on its first run once the folder is back,
  * when the claim hands it the folder again. Where the step names another folder beside
