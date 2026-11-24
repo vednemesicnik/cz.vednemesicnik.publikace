@@ -114,7 +114,7 @@ import type {
 } from '../../data/articles.server.ts'
 import type { BatchRow, ListedBatch } from '../../data/artworks.server.ts'
 import { checkArticleFolders, recordedMissing } from '../../drive/article-folders.server.ts'
-import { discardBatch, resendBatch } from '../../drive/artworks-setup.server.ts'
+import { discardBatch, holderOf, resendBatch } from '../../drive/artworks-setup.server.ts'
 import { checkAllDocRevisions } from '../../drive/doc-revisions.server.ts'
 import {
   cancelFinalVersion,
@@ -577,13 +577,18 @@ async function artworksOf(
 ): Promise<ArtworksView> {
   let { articles, artworks } = articlesOf(context)
   let batches = await artworks.artworks.listByIssue(issue.id)
-  let missingOf = new Map<number, ArticleFolderKind[]>(
-    (await articles.listCreated(issue.id)).map((article) => [article.id, recordedMissing(article)]),
-  )
+  let missingOf = new Map<string, ArticleFolderKind[]>([
+    ...(await articles.listCreated(issue.id)).map(
+      (article) => [`article:${article.id}`, recordedMissing(article)] as const,
+    ),
+    ...(await artworks.groups.listByIssue(issue.id)).map(
+      (group) => [`group:${group.id}`, recordedMissing(group)] as const,
+    ),
+  ])
   let isOpen = issue.closedAt === null
   let all: (ArtworkRowView & { uploadedAt: Temporal.Instant })[] = batches.flatMap((batch) => {
     let state: ArtworkState = batchState(batch)
-    let missing = missingOf.get(batch.articleId) ?? []
+    let missing = missingOf.get(`${batch.holder.kind}:${batch.holder.id}`) ?? []
     let query = filter === 'all' ? '' : `?artworks=${filter}`
     let ids = { id: String(batch.id), name: issue.name }
     let actions =
@@ -599,10 +604,10 @@ async function artworksOf(
           }
         : null
     return batch.artworks.map((artwork) => ({
-      articleName: batch.articleName,
       author: artwork.author ?? 'neuveden',
       batchActions: actions,
       driveUrl: driveFileUrl(artwork.driveFileId),
+      holderName: batch.holder.name,
       id: artwork.id,
       name: artwork.originalName,
       providerEmail: batch.providerEmail,
@@ -745,10 +750,10 @@ function discardingView(context: PageContext, issue: Issue, batch: ListedBatch):
   let filter = filterOf(context)
   return {
     action: `${routes.issues.discardBatch.href({ id: String(batch.id), name: issue.name })}${filter === 'all' ? '' : `?artworks=${filter}`}`,
-    articleName: batch.articleName,
     cancelHref: detailHref(issue, filter),
     count: batch.artworks.length,
     email: batch.providerEmail,
+    holder: { kind: batch.holder.kind, name: batch.holder.name },
   }
 }
 
@@ -1341,8 +1346,8 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
             return back()
           /* A folder went missing while the dialog was open: it stays open and says which. */
           case 'folder-gone': {
-            let article = await articlesOf(context).articles.findById(batch.articleId)
-            let urls = article === null ? {} : subfolderUrls(article)
+            let holder = await holderOf(articlesOf(context).artworks, batch)
+            let urls = holder === null ? {} : subfolderUrls(holder)
             return renderDetail(context, issue, {
               discarding: {
                 ...discardingView(context, issue, batch),

@@ -23,6 +23,7 @@ import {
   DISCARD_UNAVAILABLE_TITLE,
   discardDialogText,
   discardDialogTitle,
+  type HolderName,
   isWaiting,
   PROVIDER_COLUMN,
   STATE_COLUMN,
@@ -247,7 +248,6 @@ export type MissingAddressView = {
  * batch's actions stand on each of its rows, and act on all of them (`12o`).
  */
 export type ArtworkRowView = {
-  articleName: string
   author: string
   /**
    * Resend and discard, for a batch in _Chyba_ of an issue still open; each `null` while a folder
@@ -255,6 +255,8 @@ export type ArtworkRowView = {
    */
   batchActions: { count: number; discardHref: string | null; resendAction: string | null } | null
   driveUrl: string
+  /** The article or the group the artwork belongs to, the line under its name (`12a`). */
+  holderName: string
   id: number
   name: string
   providerEmail: string
@@ -274,10 +276,10 @@ export type ArtworksView = {
 /** The question _Zahodit dávku_ over the detail (`12o`). */
 export type DiscardView = {
   action: string
-  articleName: string
   cancelHref: string
   count: number
   email: string
+  holder: HolderName
   /** The confirm met a folder gone meanwhile: nothing went to the bin (`12o`). */
   folderGone?: { heading: readonly HeadingPart[]; urls: MissingFoldersView['urls'] }
   /**
@@ -1062,7 +1064,7 @@ function ArtworkRow(
         <TableRowTitle
           href={artwork.driveUrl}
           isNewTab
-          sub={artwork.articleName}
+          sub={artwork.holderName}
           title={artwork.name}
         />
         <span mix={providerStyle} role="cell">
@@ -1246,9 +1248,7 @@ function DiscardDialog(handle: Handle<{ discarding: DiscardView }>) {
               </Callout>
             </div>
           )}
-          <p class="vdm-dialog__text">
-            {discardDialogText(discarding.articleName, discarding.email)}
-          </p>
+          <p class="vdm-dialog__text">{discardDialogText(discarding.holder, discarding.email)}</p>
         </div>
         <form action={discarding.action} class="vdm-dialog__actions" method="post">
           <CsrfField />
