@@ -22,10 +22,14 @@ import {
   APPROVAL_SEND_JOB,
   WAITING_CLAUSE_LABEL,
 } from '../../domain/approvals.ts'
-import { ARTWORK_STATE_LABELS, batchStateDetail, replyExcerpt } from '../../domain/artwork.ts'
+import {
+  ARTWORK_STATE_LABELS,
+  batchStateDetail,
+  IN_LICENCE_LINE,
+  replyExcerpt,
+} from '../../domain/artwork.ts'
 import { alreadyReplacedToast } from '../../domain/final-version-replacement.ts'
 import { type JobHealth, jobHealth, jobState } from '../../domain/job-run.ts'
-import { tied } from '../../domain/public/typography.ts'
 import { REPLY_CHECK_JOB } from '../../domain/reply-check.ts'
 import {
   ARCHIVE_FAILED_TAG,
@@ -291,7 +295,7 @@ function cardOf(batch: QueuedBatch, options: CardOptions): QueueCardView {
           callout: null,
           quote: null,
           tag: {
-            detail: tied`konverzace v Licencích`,
+            detail: IN_LICENCE_LINE,
             label: ARTWORK_STATE_LABELS.approved,
             tone: 'done-outline',
           },
