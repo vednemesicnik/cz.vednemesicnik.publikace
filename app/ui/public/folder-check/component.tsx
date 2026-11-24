@@ -16,6 +16,18 @@ export type FolderCheckProps = {
 const WAITLINE_DELAY_MS = 300
 
 /**
+ * The Callout's padding box: inside its 1px border and rounded as the border's inner edge, so the
+ * bar runs just under the border and never covers it.
+ */
+const WAITLINE_CLIP = {
+  borderRadius: 'calc(var(--radius-lg) - 1px)',
+  inset: '1px',
+  overflow: 'hidden',
+  pointerEvents: 'none',
+  position: 'absolute',
+} as const
+
+/**
  * One check per page however many Callouts start it, so a detail with three marked folders asks
  * Drive once and reloads once. The entry goes when the check settles rather than staying for the
  * document's life, because the runtime keeps the document across navigations, and the detail
@@ -45,9 +57,9 @@ function checkOnce(href: string, csrfToken: string, reload: () => Promise<unknow
  * missing and reloads the page, which drops a Callout whose folder is back without a toast.
  * _Zkontrolovat znovu_ waits the same way, and its answer comes as the page it redirects to.
  *
- * The waitline is a bar drawn over the top edge, as in the reply form, and not the class on a
+ * The waitline is a bar along the top edge, inside the Callout's border, and not the class on a
  * wrapper as the drawing writes it: the design system's `.vdm-waitline` is a 3px block that
- * clips what it holds. Its wrapper is the page's, which gives the Callout a containing block.
+ * clips what it holds. The page's wrapper gives the Callout a containing block.
  *
  * Without the browser runtime nothing asks on arrival: the marks show as recorded, and
  * _Zkontrolovat znovu_ is an ordinary form.
@@ -110,11 +122,12 @@ export const FolderCheck = clientEntry(
       return (
         <>
           {isWaiting ? (
-            <span
-              aria-hidden="true"
-              class="vdm-waitline"
-              style={{ left: 0, position: 'absolute', right: 0, top: 0 }}
-            ></span>
+            <span aria-hidden="true" style={WAITLINE_CLIP}>
+              <span
+                class="vdm-waitline"
+                style={{ left: 0, position: 'absolute', right: 0, top: 0 }}
+              ></span>
+            </span>
           ) : null}
           {action === null ? null : (
             <form
