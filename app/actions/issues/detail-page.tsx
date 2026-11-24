@@ -644,7 +644,6 @@ const replacedQuoteStyle = css({
   '& blockquote': { margin: 0, whiteSpace: 'pre-line' },
 })
 
-/* The Callout of a missing folder belongs to the row above it, inside the same table (`12j`). */
 /* The containing block of the waitline along a missing folder's Callout, rounded as it is. */
 const checkedCalloutStyle = css({
   borderRadius: 'var(--radius-lg)',
@@ -652,6 +651,7 @@ const checkedCalloutStyle = css({
   position: 'relative',
 })
 
+/* The Callout of a missing folder belongs to the row above it, inside the same table (`12j`). */
 const bandStyle = css({ padding: '0 20px 16px' })
 const bandRuleStyle = css({ borderBottom: '1px solid var(--border)' })
 

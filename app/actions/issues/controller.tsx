@@ -1087,7 +1087,8 @@ export default function createIssuesController(signedInUntil: SignedInUntilCooki
 
       /* `12j`: what the detail's Callouts ask once the page stands. The records change and the
          Callouts read them on the page's next render, so this says nothing: no toast, whether
-         Drive answered or not, and never a redirect, because a script fetches it. */
+         Drive answered or not, and never a redirect, because the page's island fetches it and
+         reloads the page itself. */
       async checkMarkedFolders(context) {
         let issue = await issuesOf(context).store.findByName(context.params.name)
         if (issue === null) return notFound()
