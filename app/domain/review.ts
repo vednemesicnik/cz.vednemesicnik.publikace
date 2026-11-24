@@ -131,7 +131,10 @@ export type ReadLine = { job: string | null; parts: readonly ReadPart[] }
 /** The two jobs that read the replies the queue holds: the artworks' and the articles'. */
 export type ReadingJobs = { articles: JobState; artworks: JobState }
 
-/** What a screen reader calls the header's list: _Stav_, so it is not heard as a task beside the lead's _Přečtěte je_ (copy `9gje14lt`). */
+/**
+ * What a screen reader calls the header's list: _Stav_, so it is not heard as a task beside the
+ * lead's _Přečtěte je_ (copy `9gje14lt`).
+ */
 export const READ_LIST_LABEL = 'Stav čtení odpovědí'
 
 /* `13c`, and the copywriter's lines for a job that is _Neběží_ (`ey9bfcxx`). */

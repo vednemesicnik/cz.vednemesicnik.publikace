@@ -162,8 +162,8 @@ export const ARTWORK_STATE_LABELS: Readonly<Record<ArtworkState, string>> = {
 
 /**
  * The Mailer did not confirm that a request for consent went out. The line claims no delivery and
- * no bounce, which no job reads (copy `4k262ttk`), and stands under _Chyba_ for a batch, an article and
- * an author's clause alike (`01a`, `12b`, `12o`).
+ * no bounce, which no job reads (copy `4k262ttk`), and stands under _Chyba_ for a batch, an
+ * article and an author's clause alike (`01a`, `12b`, `12o`).
  */
 export const UNCONFIRMED_SEND_LINE = tied`chybí potvrzení o odeslání žádosti`
 

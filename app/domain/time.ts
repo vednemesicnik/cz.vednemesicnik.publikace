@@ -45,7 +45,10 @@ export function atTime(instant: Temporal.Instant): string {
   return keepOneLetterWords(`${preposition} ${clockTime(instant)}`)
 }
 
-/* The hours and the days before which _z_ reads as _ze_, a convention of Publikace (copy `9gje14lt`). */
+/*
+ * The hours and the days before which _z_ reads as _ze_: a convention of Publikace, as `atTime`'s
+ * hours are (copy `9gje14lt`).
+ */
 const FROM_ZE_HOURS: readonly number[] = [2, 3, 4, 6, 7, 12, 13, 14, 16, 17, 20, 21, 22, 23]
 const FROM_ZE_DAYS: readonly number[] = [
   2, 3, 4, 6, 7, 12, 13, 14, 16, 17, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,

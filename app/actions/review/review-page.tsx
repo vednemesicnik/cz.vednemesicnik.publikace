@@ -43,7 +43,7 @@ export type ReviewPageProps = {
   hrefOf(kind: ReviewKind): string
   kind: ReviewKind
   person: PanelPerson
-  /** When the replies were read, or which job is not reading them (`13a`, `13c`). */
+  /** How each job's last read ended, or that it is not reading (`13i`, `13c`). */
   readLines: readonly ReadLine[]
   toasts?: readonly ToastMessage[]
   /** An answer whose card left the queue while it was written, shown once (`gjovqe1p`). */
