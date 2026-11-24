@@ -269,9 +269,6 @@ export function IssueStepDialog(handle: Handle<{ step: IssueStepDialogView }>) {
   }
 }
 
-/* The link keeps the weight of the line it stands in, the title's included. */
-const calloutLinkStyle = css({ fontWeight: 'inherit' })
-
 function Parts(handle: Handle<{ parts: readonly CalloutPart[] }>) {
   return () => (
     <>
@@ -279,13 +276,7 @@ function Parts(handle: Handle<{ parts: readonly CalloutPart[] }>) {
         typeof part === 'string' ? (
           part
         ) : (
-          <a
-            class="vdm-link"
-            href={part.href}
-            mix={calloutLinkStyle}
-            rel="noopener"
-            target="_blank"
-          >
+          <a class="vdm-link" href={part.href} rel="noopener" target="_blank">
             {part.text}
             <NewTabMark />
           </a>
