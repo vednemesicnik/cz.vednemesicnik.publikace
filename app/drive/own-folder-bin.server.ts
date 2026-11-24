@@ -72,7 +72,9 @@ async function foreignIn(
 export async function binOwnFolder(files: IssueFiles, folder: OwnFolder): Promise<BinOutcome> {
   let location = await files.locate(folder.folderId)
   if (location.kind === 'unavailable') return { kind: 'unavailable' }
-  /* Already where the removal would put it, or gone for good: nothing left to move (`12w`). */
+  /* Already where the removal would put it, or gone for good: nothing left to move (`12w`). A
+     folder moved off the shared drive answers as one gone for good, since the account no longer
+     reaches it. */
   if (location.kind === 'binned' || location.kind === 'deleted') return { kind: 'already-binned' }
   if (!location.parents.includes(folder.expectedParentId)) return { kind: 'moved' }
 
