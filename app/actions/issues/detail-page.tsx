@@ -1251,7 +1251,7 @@ function Articles(
             {docCheck.announcement ?? ''}
           </p>
         )}
-        {docCheck?.check == null ? null : (
+        {docCheck === null || docCheck.check === null ? null : (
           <DocRevisionCheck
             csrfToken={csrfToken}
             href={docCheck.check.href}
