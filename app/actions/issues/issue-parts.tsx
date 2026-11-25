@@ -164,6 +164,19 @@ export function stepDialogHref(
   return `${href}?${query}`
 }
 
+/** _Nová skupina obrazových děl_ (`12e`), over the detail or over a row of the overview (`11a`). */
+export function newGroupHref(
+  issue: Issue,
+  returnTo: ReturnTo,
+  filter: IssueFilter = 'all',
+): string {
+  let href = routes.issues.newGroup.href({ name: issue.name })
+  if (returnTo === 'detail') return href
+  let query = new URLSearchParams({ from: 'overview' })
+  if (filter !== 'all') query.set('state', filter)
+  return `${href}?${query}`
+}
+
 /**
  * _Přejmenovat vydání…_ and _Odebrat vydání…_, each only where it can go through (`12u`): a rename
  * for an issue that is not closed, a removal for one with no article and no group.
