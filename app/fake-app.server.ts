@@ -827,7 +827,10 @@ export async function createFakeApp(environment: Environment): Promise<FakeApp> 
         return backToControls()
       }
       case '/link/renew':
-        await links.renew(issueId, now())
+        {
+          let shown = await links.articleLinkOf(issueId)
+          if (shown !== null) await links.renew(issueId, shown.key, now())
+        }
         return backToControls()
       case '/sign-in':
       case '/sign-in/proofreader': {
