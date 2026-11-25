@@ -19,8 +19,8 @@ import {
   SAVE_GROUP_PENDING_LABEL,
 } from '../../domain/group-fixes.ts'
 import { type IssueFilter, notConnectedDialogMessage } from '../../domain/issue.ts'
-import { RENEW_CONFIRM_LABEL, RENEW_GROUP_LINK_TEXT } from '../../domain/link.ts'
 import type { FixCallout } from '../../domain/issue-fixes.ts'
+import { RENEW_CONFIRM_LABEL, RENEW_GROUP_LINK_TEXT } from '../../domain/link.ts'
 import { REQUIRED_LEGEND } from '../../domain/public/article-form.ts'
 import { Callout } from '../../ui/callout/component.tsx'
 import { CsrfField } from '../../ui/csrf-field/component.tsx'
