@@ -107,8 +107,8 @@ describe('checking the cards after the final version (12y)', () => {
 })
 
 describe('Odebrat článek (12z)', () => {
-  const NAME = 'Školní jídelna po roce'
-  const NONE = { count: 0, isReplyWaiting: false }
+  let name = 'Školní jídelna po roce'
+  let none = { count: 0, isReplyWaiting: false }
 
   it('stands on Píše se and Dopsáno with no live batch, in an open issue', () => {
     assert.equal(canRemoveArticle('writing', 0, true), true)
@@ -121,23 +121,23 @@ describe('Odebrat článek (12z)', () => {
 
   it('says the folder is in the bin already when it is', () => {
     assert.equal(
-      plain(removeArticleDialogText(NAME, 'writing', true, NONE)[0] ?? ''),
+      plain(removeArticleDialogText(name, 'writing', true, none)[0] ?? ''),
       'Složka článku už je v koši sdíleného disku Publikace.',
     )
   })
 
   it('adds the reply paragraph for one discarded batch, for more, and with a reply waiting', () => {
-    let one = removeArticleDialogText(NAME, 'writing', false, { count: 1, isReplyWaiting: false })
+    let one = removeArticleDialogText(name, 'writing', false, { count: 1, isReplyWaiting: false })
     assert.equal(
       plain(one.at(-1) ?? ''),
       'Pokud ještě přijde odpověď na žádost k zahozené dávce, najdete ji jen ve schránce publikace@.',
     )
-    let two = removeArticleDialogText(NAME, 'writing', false, { count: 2, isReplyWaiting: true })
+    let two = removeArticleDialogText(name, 'writing', false, { count: 2, isReplyWaiting: true })
     assert.equal(
       plain(two.at(-1) ?? ''),
       'Pokud ještě přijde odpověď na žádost k zahozeným dávkám, najdete ji jen ve schránce publikace@. Odebráním článku zmizí z části Ke kontrole i odpověď, která tam už čeká.',
     )
-    assert.equal(removeArticleDialogText(NAME, 'writing', false, NONE).length, 4)
+    assert.equal(removeArticleDialogText(name, 'writing', false, none).length, 4)
   })
 
   it('names the proofreader and the day of a take that came meanwhile', () => {
