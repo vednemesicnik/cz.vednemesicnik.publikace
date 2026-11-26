@@ -398,8 +398,8 @@ _Vydání_; the two never see each other's articles.
    article and _Otevřít dokument_, word for word as the old job sends it. `/settings/jobs` shows
    _Připomínky ke článkům_ with _Poslala 2 e-maily_.
 2. Run it again at once: no e-mail, and the history says _Nic nového k poslání_.
-3. As one of the authors, add a comment and run it: no e-mail. Add a suggestion as that author
-   and run it: both authors get the e-mail, because a suggestion carries no author.
+3. As one of the authors, add a comment and run it: both authors get the e-mail. Drive never gives
+   a comment's author by address, so an author's own comment is told of like anybody's.
 4. Give one author new comments in two articles and run it: one e-mail, _Nové připomínky
    k vašim článkům – ‹dnešní datum›_, with both.
 5. Break `MAIL_SEND_SECRET`, add a comment and run it: the run is _S chybou_, and its history
